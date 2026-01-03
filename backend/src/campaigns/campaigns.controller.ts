@@ -1,3 +1,4 @@
+//backend/src/campaigns/campaigns.controller.ts
 import {
   Body,
   Controller,
@@ -68,7 +69,7 @@ export class CampaignsController {
       repeatMinMax: toNum(body?.repeatMinMax),
 
       // ✅ ВАЖНО: передаём channel
-      channel:body?.channel,
+      channel: normChannel(body?.channel),
     } as any);
   }
 

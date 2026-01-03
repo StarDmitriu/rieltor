@@ -2,19 +2,82 @@ import { Injectable } from '@nestjs/common';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import * as jwt from 'jsonwebtoken';
 import { SmsService } from '../sms/sms.service';
+import { requireEnv } from '../config/env';
+
+type ProfileUpdate = {
+  full_name?: string;
+  gender?: string;
+  telegram?: string;
+  birthday?: string | null;
+};
+
+type OtpRow = {
+  phone: string;
+  code: string;
+  created_at?: string | null;
+  expires_at?: string | null;
+  attempts?: number | null;
+  last_sent_at?: string | null;
+  updated_at?: string | null;
+};
 
 @Injectable()
 export class AuthService {
   private supabase: SupabaseClient;
 
+  // можно переопределить через env при желании
+  private readonly OTP_TTL_MIN = Number(process.env.OTP_TTL_MINUTES || 5); // 5 минут
+  private readonly OTP_MAX_ATTEMPTS = Number(process.env.OTP_MAX_ATTEMPTS || 5); // 5 попыток
+  private readonly OTP_RESEND_COOLDOWN_SEC = Number(
+    process.env.OTP_RESEND_COOLDOWN_SEC || 60,
+  ); // 60 секунд
+
   constructor(private readonly smsService: SmsService) {
     this.supabase = createClient(
-      process.env.SUPABASE_URL as string,
-      process.env.SUPABASE_KEY as string,
+      requireEnv('SUPABASE_URL'),
+      requireEnv('SUPABASE_KEY'),
     );
   }
 
-  // ---------- ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ДЛЯ users ----------
+  // -------------------------
+  // helpers
+  // -------------------------
+
+  private nowIso() {
+    return new Date().toISOString();
+  }
+
+  private addMinutesIso(minutes: number) {
+    return new Date(Date.now() + minutes * 60_000).toISOString();
+  }
+
+  private safeFail(message: string) {
+    return { success: false, message };
+  }
+
+  /**
+   * Нормализация телефона без внешних либ:
+   * - убираем всё кроме цифр
+   * - если 11 цифр и начинается с 8 => меняем на 7 (частый РФ кейс)
+   * - добавляем '+'
+   *
+   * Если у тебя много стран, позже лучше заменить на libphonenumber.
+   */
+  private normalizePhone(input: string): string {
+    const raw = String(input || '').trim();
+    if (!raw) return '';
+
+    let digits = raw.replace(/[^\d]/g, '');
+    if (!digits) return '';
+
+    if (digits.length === 11 && digits.startsWith('8')) {
+      digits = '7' + digits.slice(1);
+    }
+
+    return digits;
+  }
+
+  // ---------- users ----------
 
   private async findUserByPhone(phone: string) {
     const { data, error } = await this.supabase
@@ -53,7 +116,7 @@ export class AuthService {
     const { data, error } = await this.supabase
       .from('users')
       .update({
-        last_login: new Date().toISOString(),
+        last_login: this.nowIso(),
         is_verified: true,
       })
       .eq('phone', phone)
@@ -68,27 +131,31 @@ export class AuthService {
     return data;
   }
 
-  // обновление профиля по id (используем для регистрации)
-  async updateProfile(
-    userId: string,
-    update: {
-      full_name?: string;
-      gender?: string;
-      telegram?: string;
-      birthday?: string | null;
-    },
-  ) {
+  async getUserById(id: string) {
+    const { data, error } = await this.supabase
+      .from('users')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Supabase getUserById error:', error);
+      throw error;
+    }
+
+    return data;
+  }
+
+  async updateProfile(userId: string, update: ProfileUpdate) {
     const { full_name, gender, telegram, birthday } = update;
 
-    // если реально ничего не передали — просто возвращаем текущего пользователя
     if (
       full_name === undefined &&
       gender === undefined &&
       telegram === undefined &&
       birthday === undefined
     ) {
-      const user = await this.getUserById(userId);
-      return user;
+      return await this.getUserById(userId);
     }
 
     const { data, error } = await this.supabase
@@ -111,106 +178,124 @@ export class AuthService {
     return data;
   }
 
-  // ---------- ОТПРАВКА КОДА ----------
+  // ---------- SEND CODE ----------
 
   async sendCode(phone: string) {
-    if (!phone) {
-      return { success: false, message: 'phone is required' };
-    }
+    const normPhone = this.normalizePhone(phone);
+    if (!normPhone) return this.safeFail('phone is required');
 
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
-
-    const { data, error } = await this.supabase
+    // 1) анти-спам: смотрим last_sent_at
+    const { data: existing, error: exErr } = await this.supabase
       .from('otp_codes')
-      .upsert({ phone, code })
-      .select();
+      .select('phone, last_sent_at')
+      .eq('phone', normPhone)
+      .maybeSingle();
 
-    console.log('SUPABASE UPSERT OTP:', { data, error });
-    console.log('OTP CODE (debug):', code);
-
-    if (error) {
-      return { success: false, message: 'supabase_upsert_error', error };
+    if (exErr) {
+      console.error('Supabase select otp_codes (sendCode) error:', exErr);
+      return this.safeFail('supabase_select_error');
     }
 
-    const text = `Ваш код подтверждения: ${code}`;
-    const smsResult = await this.smsService.sendSms(phone, text);
+    if ((existing as any)?.last_sent_at) {
+      const last = new Date((existing as any).last_sent_at).getTime();
+      const diffSec = Math.floor((Date.now() - last) / 1000);
+      if (Number.isFinite(last) && diffSec < this.OTP_RESEND_COOLDOWN_SEC) {
+        return this.safeFail('too_many_requests');
+      }
+    }
 
-    /*if (!smsResult.success) {
-      console.warn('Не удалось отправить SMS, но код сохранён в БД', smsResult);
-    }*/
+    // 2) генерим код
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const now = this.nowIso();
+
+    // 3) сохраняем код с TTL и attempts=0
+    const { error: upErr } = await this.supabase.from('otp_codes').upsert(
+      {
+        phone: normPhone,
+        code,
+        attempts: 0,
+        expires_at: this.addMinutesIso(this.OTP_TTL_MIN),
+        last_sent_at: now,
+        updated_at: now,
+      },
+      { onConflict: 'phone' },
+    );
+
+    if (upErr) {
+      console.error('Supabase upsert otp_codes error:', upErr);
+      return this.safeFail('supabase_upsert_error');
+    }
+
+    // 4) отправляем SMS
+    const text = `Ваш код подтверждения: ${code}`;
+    const smsResult = await this.smsService.sendSms(normPhone, text);
+
+    // если SMS не ушло — вернём ошибку
+    if (!smsResult?.success) {
+      console.warn('SMS send failed', smsResult);
+      return this.safeFail('sms_send_failed');
+    }
 
     return { success: true };
   }
 
-  // получить user по id (для /auth/me)
-  async getUserById(id: string) {
-    const { data, error } = await this.supabase
-      .from('users')
-      .select('*')
-      .eq('id', id)
-      .maybeSingle();
+  // ---------- VERIFY CODE + LOGIN/REGISTER ----------
 
-    if (error) {
-      console.error('Supabase getUserById error:', error);
-      throw error;
-    }
+  async verifyCode(phone: string, code: string, profile?: ProfileUpdate) {
+    const normPhone = this.normalizePhone(phone);
+    const normCode = String(code || '').trim();
 
-    return data;
-  }
-
-  // ---------- ПРОВЕРКА КОДА + ЛОГИН/РЕГИСТРАЦИЯ ----------
-
-  async verifyCode(
-    phone: string,
-    code: string,
-    profile?: {
-      full_name?: string;
-      gender?: string;
-      telegram?: string;
-      birthday?: string | null;
-    },
-  ) {
-    if (!phone || !code) {
-      return { success: false, message: 'phone and code are required' };
+    if (!normPhone || !normCode) {
+      return this.safeFail('phone and code are required');
     }
 
     const { data, error } = await this.supabase
       .from('otp_codes')
-      .select('*')
-      .eq('phone', phone)
+      .select('phone, code, expires_at, attempts')
+      .eq('phone', normPhone)
       .maybeSingle();
 
-    console.log('SUPABASE SELECT OTP:', { data, error });
-
     if (error) {
-      return { success: false, message: 'supabase_select_error', error };
+      console.error('Supabase select otp_codes (verifyCode) error:', error);
+      return this.safeFail('supabase_select_error');
     }
 
-    if (!data) {
-      return { success: false, message: 'Код не найден' };
+    const row = data as OtpRow | null;
+    if (!row) {
+      return this.safeFail('invalid_or_expired_code');
     }
 
-    if (data.code !== code) {
-      return { success: false, message: 'Неверный код' };
+    const attempts = Number.isFinite(row.attempts as any)
+      ? Number(row.attempts)
+      : 0;
+
+    if (attempts >= this.OTP_MAX_ATTEMPTS) {
+      return this.safeFail('too_many_attempts');
     }
 
-    // TTL проверки сейчас нет (отключена на время разработки)
-    // ❗️Чтобы двойной запрос /auth/verify-code не ломал логин,
-    // удаляем OTP чуть позже (а не мгновенно)
-    setTimeout(() => {
-      this.supabase
+    if (row.expires_at) {
+      const exp = new Date(row.expires_at).getTime();
+      if (Number.isFinite(exp) && exp < Date.now()) {
+        return this.safeFail('invalid_or_expired_code');
+      }
+    }
+
+    if (String(row.code || '').trim() !== normCode) {
+      await this.supabase
         .from('otp_codes')
-        .delete()
-        .eq('phone', phone)
-        .then(() => undefined)
-    }, 30_000);
+        .update({ attempts: attempts + 1, updated_at: this.nowIso() })
+        .eq('phone', normPhone);
 
-    // --- логика логина / регистрации ---
+      return this.safeFail('invalid_or_expired_code');
+    }
 
-    let user = await this.findUserByPhone(phone);
+    // ✅ успех — удаляем OTP сразу
+    await this.supabase.from('otp_codes').delete().eq('phone', normPhone);
+
+    // --- логика логина/регистрации ---
+    let user = await this.findUserByPhone(normPhone);
 
     if (!user) {
-      // пользователя нет в БД
       if (
         profile &&
         (profile.full_name ||
@@ -218,38 +303,25 @@ export class AuthService {
           profile.telegram ||
           profile.birthday)
       ) {
-        // РЕГИСТРАЦИЯ: есть профиль → создаём пользователя и применяем профиль
-        user = await this.createUser(phone);
+        user = await this.createUser(normPhone);
         user = await this.updateProfile(user.id, profile);
       } else {
-        // ЛОГИН: профиль не передан → не даём войти
-        return { success: false, message: 'user_not_found' };
+        return this.safeFail('user_not_found');
       }
     } else {
-      // пользователь уже есть → обновляем last_login
-      user = await this.updateLastLogin(phone);
+      user = await this.updateLastLogin(normPhone);
 
-      // если при логине вдруг передали профиль (теоретически) — обновим
       if (profile) {
         user = await this.updateProfile(user.id, profile);
       }
     }
 
-    const payload = {
-      userId: user.id,
-      phone: user.phone,
-    };
+    const payload = { userId: user.id, phone: user.phone };
 
-    const token = jwt.sign(
-      payload,
-      (process.env.JWT_SECRET as string) || 'dev_secret',
-      { expiresIn: '7d' },
-    );
+    const token = jwt.sign(payload, requireEnv('JWT_SECRET'), {
+      expiresIn: '7d',
+    });
 
-    return {
-      success: true,
-      token,
-      user,
-    };
+    return { success: true, token, user };
   }
 }

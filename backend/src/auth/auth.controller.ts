@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Headers, Post } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import * as jwt from 'jsonwebtoken';
+import { requireEnv } from '../config/env';
 
 @Controller('auth')
 export class AuthController {
@@ -25,27 +26,21 @@ export class AuthController {
 
   @Get('me')
   async me(@Headers('authorization') authHeader?: string) {
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return { success: false, message: 'No token provided' };
-    }
-
-    const token = authHeader.replace('Bearer ', '').trim();
+    const token = this.extractBearerToken(authHeader);
+    if (!token) return { success: false, message: 'No token provided' };
 
     try {
-      const payload = jwt.verify(
-        token,
-        (process.env.JWT_SECRET as string) || 'dev_secret',
-      ) as { userId: string; phone: string };
+      const payload = jwt.verify(token, requireEnv('JWT_SECRET')) as {
+        userId: string;
+        phone: string;
+      };
 
-      if (!payload.userId) {
+      if (!payload?.userId) {
         return { success: false, message: 'Invalid token payload' };
       }
 
       const user = await this.auth.getUserById(payload.userId);
-
-      if (!user) {
-        return { success: false, message: 'User not found' };
-      }
+      if (!user) return { success: false, message: 'User not found' };
 
       return { success: true, user };
     } catch (e) {
@@ -65,28 +60,38 @@ export class AuthController {
       birthday?: string | null;
     },
   ) {
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return { success: false, message: 'No token provided' };
-    }
-
-    const token = authHeader.replace('Bearer ', '').trim();
+    const token = this.extractBearerToken(authHeader);
+    if (!token) return { success: false, message: 'No token provided' };
 
     try {
-      const payload = jwt.verify(
-        token,
-        (process.env.JWT_SECRET as string) || 'dev_secret',
-      ) as { userId: string; phone: string };
+      const payload = jwt.verify(token, requireEnv('JWT_SECRET')) as {
+        userId: string;
+        phone: string;
+      };
 
-      if (!payload.userId) {
+      if (!payload?.userId) {
         return { success: false, message: 'Invalid token payload' };
       }
 
       const user = await this.auth.updateProfile(payload.userId, body || {});
-
       return { success: true, user };
     } catch (e) {
       console.error('JWT verify error (update-profile):', e);
       return { success: false, message: 'Invalid token' };
     }
+  }
+
+  private extractBearerToken(authHeader?: string): string | null {
+    if (!authHeader || typeof authHeader !== 'string') return null;
+
+    // допускаем "Bearer <token>" в любом регистре
+    const parts = authHeader.trim().split(/\s+/);
+    if (parts.length !== 2) return null;
+
+    const [scheme, token] = parts;
+    if (!/^bearer$/i.test(scheme)) return null;
+
+    const t = String(token || '').trim();
+    return t ? t : null;
   }
 }

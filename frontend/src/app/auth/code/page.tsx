@@ -8,11 +8,12 @@ export default function CodePage() {
 	const params = useSearchParams()
 	const router = useRouter()
 
-	const phone = params.get('phone') || ''
+	const phone = params.get('phone') || '' // ✅ FIX
 	const mode = params.get('mode') || 'login' // login | register
 
 	const [code, setCode] = useState('')
 	const [loading, setLoading] = useState(false)
+	const [resendLoading, setResendLoading] = useState(false)
 
 	const verify = async () => {
 		if (!code) {
@@ -46,13 +47,11 @@ export default function CodePage() {
 			console.log('POST /auth/verify-code:', data)
 
 			if (!data.success) {
-				// спец-случай: пытаемся войти, а пользователя нет
 				if (data.message === 'user_not_found' && mode === 'login') {
 					const go = confirm(
 						'Пользователь с таким номером не найден. Зарегистрироваться?'
 					)
 					if (go) {
-						// очистим временные данные на всякий случай
 						if (typeof window !== 'undefined') {
 							sessionStorage.removeItem('registerProfile')
 						}
@@ -79,6 +78,36 @@ export default function CodePage() {
 		}
 	}
 
+	const resendCode = async () => {
+		if (!phone) {
+			alert('Телефон отсутствует')
+			return
+		}
+
+		setResendLoading(true)
+		try {
+			const res = await fetch('http://localhost:3000/auth/send-code', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ phone }),
+			})
+
+			const data = await res.json()
+			console.log('POST /auth/send-code:', data)
+
+			if (!data.success) {
+				alert(data.message || 'Не удалось отправить код')
+				return
+			}
+
+			alert('Код отправлен повторно!')
+		} catch (err) {
+			console.error(err)
+			alert('Ошибка сети при повторной отправке')
+		} finally {
+			setResendLoading(false)
+		}
+	}
 
 	return (
 		<div style={{ padding: 24 }}>
@@ -86,15 +115,29 @@ export default function CodePage() {
 				Введите код, отправленный на {phone}{' '}
 				{mode === 'register' ? '(регистрация)' : '(вход)'}
 			</h2>
-			<input
-				placeholder='Код из SMS'
-				value={code}
-				onChange={e => setCode(e.target.value)}
-				style={{ padding: 10, width: 160, marginRight: 8, marginTop: 12 }}
-			/>
-			<button onClick={verify} disabled={loading} style={{ padding: 10 }}>
-				{loading ? 'Проверяем...' : 'Подтвердить'}
-			</button>
+
+			<div style={{ marginTop: 12 }}>
+				<input
+					placeholder='Код из SMS'
+					value={code}
+					onChange={e => setCode(e.target.value)}
+					style={{ padding: 10, width: 160, marginRight: 8 }}
+				/>
+
+				<button onClick={verify} disabled={loading} style={{ padding: 10 }}>
+					{loading ? 'Проверяем...' : 'Подтвердить'}
+				</button>
+			</div>
+
+			<div style={{ marginTop: 20 }}>
+				<button
+					onClick={resendCode}
+					disabled={resendLoading}
+					style={{ padding: 10 }}
+				>
+					{resendLoading ? 'Отправляем...' : 'Отправить код повторно'}
+				</button>
+			</div>
 		</div>
 	)
 }

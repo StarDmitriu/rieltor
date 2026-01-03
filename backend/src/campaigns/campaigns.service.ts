@@ -225,9 +225,11 @@ export class CampaignsService {
           .select('id')
           .eq('user_id', userId)
           .eq('status', 'running')
+          .eq('channel', ch)
           .order('created_at', { ascending: false })
           .limit(1)
           .maybeSingle();
+
 
         if (r2?.id) {
           return {
@@ -541,7 +543,7 @@ export class CampaignsService {
     const { data: camp, error: cErr } = await supabase
       .from('campaigns')
       .select(
-        `id, user_id, status, timezone, time_from, time_to,
+        `id, user_id, status, channel, timezone, time_from, time_to,
          repeat_enabled, repeat_min_min, repeat_min_max, next_repeat_at,
          between_groups_sec_min, between_groups_sec_max,
          between_templates_min_min, between_templates_min_max`,
@@ -650,150 +652,6 @@ export class CampaignsService {
       nextRepeatAt: newNext,
     };
   }
-
-  // =========================
-  // INTERNAL: create wave + enqueue
-  // =========================
-  /*private async createWaveAndEnqueue(params: {
-    campaignId: string;
-    userId: string;
-    tz: string;
-    time_from: string;
-    time_to: string;
-    betweenGroupsSecMin: number;
-    betweenGroupsSecMax: number;
-    betweenTemplatesMinMin: number;
-    betweenTemplatesMinMax: number;
-    baseIso: string;
-    channel: 'wa' | 'tg';
-  }) {
-    const supabase = this.supabaseService.getClient();
-
-    const { data: groups, error: gErr } = await supabase
-      .from('whatsapp_groups')
-      .select(
-        'wa_group_id, subject, is_announcement, is_restricted, is_selected',
-      )
-      .eq('user_id', params.userId)
-      .eq('is_selected', true);
-
-    if (gErr)
-      return { success: false, message: 'supabase_groups_error', error: gErr };
-
-    const usableGroups = (groups ?? []).filter((g: any) => !g.is_announcement);
-    if (!usableGroups.length) return { success: false, message: 'no_groups' };
-
-    const { data: templates, error: tErr } = await supabase
-      .from('message_templates')
-      .select('id, title, text, media_url, enabled, "order"')
-      .eq('user_id', params.userId)
-      .eq('enabled', true)
-      .order('order', { ascending: true });
-
-    if (tErr)
-      return {
-        success: false,
-        message: 'supabase_templates_error',
-        error: tErr,
-      };
-    if (!templates?.length) return { success: false, message: 'no_templates' };
-
-    // ✅ Загрузим все связи "шаблон -> группы" для пользователя
-    const { data: links, error: lErr } = await supabase
-      .from('template_group_targets')
-      .select('template_id, group_jid')
-      .eq('user_id', params.userId)
-      .eq('enabled', true);
-
-    if (lErr) {
-      return {
-        success: false,
-        message: 'supabase_template_targets_error',
-        error: lErr,
-      };
-    }
-
-    // Map: templateId -> Set(groupJid)
-    const targetsMap = new Map<string, Set<string>>();
-    for (const row of links ?? []) {
-      const tid = String((row as any).template_id);
-      const jid = String((row as any).group_jid);
-      if (!targetsMap.has(tid)) targetsMap.set(tid, new Set<string>());
-      targetsMap.get(tid)!.add(jid);
-    }
-
-    const base = DateTime.fromISO(params.baseIso).setZone(params.tz);
-    let cursor = clampToWindow(base, params.time_from, params.time_to);
-
-    const jobsToInsert: any[] = [];
-
-    for (let ti = 0; ti < templates.length; ti++) {
-      const template: any = templates[ti];
-
-      // ✅ группы, выбранные для этого шаблона
-      const selected = targetsMap.get(String(template.id));
-      const targetGroups = selected
-        ? usableGroups.filter((g: any) => selected.has(String(g.wa_group_id)))
-        : [];
-
-      // ✅ если для шаблона не выбрано ни одной группы — не создаём jobs
-      if (!targetGroups.length) continue;
-
-      for (let gi = 0; gi < targetGroups.length; gi++) {
-        const group: any = targetGroups[gi];
-
-        cursor = clampToWindow(cursor, params.time_from, params.time_to);
-
-        jobsToInsert.push({
-          campaign_id: params.campaignId,
-          user_id: params.userId,
-          group_jid: group.wa_group_id,
-          template_id: template.id,
-          status: 'pending',
-          scheduled_at: cursor.toUTC().toISO(),
-          created_at: new Date().toISOString(),
-        });
-
-        cursor = cursor.plus({
-          seconds: randInt(
-            params.betweenGroupsSecMin,
-            params.betweenGroupsSecMax,
-          ),
-        });
-      }
-
-      if (ti < templates.length - 1) {
-        cursor = cursor.plus({
-          minutes: randInt(
-            params.betweenTemplatesMinMin,
-            params.betweenTemplatesMinMax,
-          ),
-        });
-      }
-    }
-
-    const { data: inserted, error: jErr } = await supabase
-      .from('campaign_jobs')
-      .insert(jobsToInsert)
-      .select('id, user_id, group_jid, template_id, scheduled_at');
-
-    if (jErr || !inserted?.length) {
-      return {
-        success: false,
-        message: 'supabase_jobs_insert_error',
-        error: jErr,
-      };
-    }
-
-    await this.enqueueRows(inserted);
-
-    return {
-      success: true,
-      groups: usableGroups.length,
-      templates: templates.length,
-      jobs: inserted.length,
-    };
-  }*/
 
   private async createWaveAndEnqueue(params: {
     campaignId: string;

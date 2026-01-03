@@ -5,6 +5,7 @@ import { TelegramClient } from 'telegram';
 import { StringSession } from 'telegram/sessions';
 import { Api } from 'telegram';
 import { Buffer } from 'buffer';
+import bigInt from 'big-integer';
 
 type TgStatus =
   | 'not_connected'
@@ -405,9 +406,23 @@ export class TelegramService {
       const chatIdStr = String(ent?.id);
       if (!chatIdStr) continue;
 
+      const type =
+        ent?.className === 'Chat'
+          ? 'chat'
+          : ent?.className === 'Channel'
+            ? 'channel'
+            : null;
+
+      const accessHashStr =
+        ent?.className === 'Channel' && ent?.accessHash != null
+          ? String(ent.accessHash)
+          : null;
+
       rows.push({
         user_id: userId,
         tg_chat_id: chatIdStr,
+        tg_type: type,
+        tg_access_hash: accessHashStr,
         title: ent?.title ?? null,
         participants_count: null,
         is_selected: true,
@@ -476,12 +491,45 @@ export class TelegramService {
     const client = await this.getConnectedClient(userId);
     if (!client) throw new Error('telegram_not_connected');
 
+    const rawId = String(tgChatId || '').trim();
+    if (!rawId) throw new Error('tg_chat_id_empty');
+
+    // ✅ достаём peer-данные из БД
+    const supabase = this.supabaseService.getClient();
+    const { data: g, error: gErr } = await supabase
+      .from('telegram_groups')
+      .select('tg_chat_id, tg_type, tg_access_hash')
+      .eq('user_id', userId)
+      .eq('tg_chat_id', rawId)
+      .maybeSingle();
+
+    if (gErr) throw new Error(`supabase_telegram_groups_error:${gErr.message}`);
+
+    let peer: any = null;
+
+    const tgType = String((g as any)?.tg_type || '');
+    const ah = (g as any)?.tg_access_hash;
+
+    if (tgType === 'chat') {
+      peer = new Api.InputPeerChat({ chatId: bigInt(rawId) });
+    } else if (tgType === 'channel') {
+      if (!ah) throw new Error('tg_access_hash_missing');
+
+      peer = new Api.InputPeerChannel({
+        channelId: bigInt(rawId),
+        accessHash: bigInt(String(ah)),
+      });
+    } else {
+      // fallback
+      peer = /^-?\d+$/.test(rawId) ? bigInt(rawId) : rawId;
+    }
+
+
     const text = payload.text || '';
     const mediaUrl = String(payload.mediaUrl || '').trim();
 
-    // только текст
     if (!mediaUrl) {
-      await client.sendMessage(tgChatId, { message: text });
+      await client.sendMessage(peer, { message: text });
       return;
     }
 
@@ -494,17 +542,16 @@ export class TelegramService {
       contentType = r.contentType;
     } catch (e: any) {
       // если медиа не скачалось — отправим хотя бы текст
-      await client.sendMessage(tgChatId, { message: text });
-      throw e;
+      // ✅ и НЕ валим отправку полностью, иначе будет failed при реально доставленном тексте
+      await client.sendMessage(peer, { message: text });
+      return;
     }
 
     const isVideo = isProbablyVideo(contentType, mediaUrl);
     const isImage = isProbablyImage(contentType, mediaUrl);
 
-    // gramjs: sendFile принимает Buffer
-    // caption = message
     if (isVideo || isImage) {
-      await client.sendFile(tgChatId, {
+      await client.sendFile(peer, {
         file: buf,
         caption: text,
         forceDocument: false,
@@ -512,9 +559,8 @@ export class TelegramService {
       return;
     }
 
-    // если тип неясен — отправим текст и ошибку
-    await client.sendMessage(tgChatId, { message: text });
-    throw new Error(`tg_unsupported_media_type contentType=${contentType}`);
+    // если тип неясен — отправим текст
+    await client.sendMessage(peer, { message: text });
   }
 
   // ---------- helper: connect if session exists ----------

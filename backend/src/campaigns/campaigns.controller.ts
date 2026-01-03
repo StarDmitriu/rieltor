@@ -1,4 +1,3 @@
-//backend/src/campaigns/campaigns.controller.ts
 import {
   Body,
   Controller,
@@ -18,21 +17,38 @@ function toNum(v: any) {
   const n = Number(v);
   return Number.isFinite(n) ? n : undefined;
 }
+function normChannel(v: any): 'wa' | 'tg' {
+  return String(v || 'wa').toLowerCase() === 'tg' ? 'tg' : 'wa';
+}
 
 @Controller('campaigns')
-@UseGuards(JwtAuthGuard) // ✅ теперь все методы требуют токен
+@UseGuards(JwtAuthGuard)
 export class CampaignsController {
   constructor(private readonly campaigns: CampaignsService) {}
 
-  // ✅ active — без userId в URL, берём из токена
-  @Get('active')
-  async active(@Req() req: any) {
+  // ✅ Active по конкретному каналу
+  @Get('active/:channel')
+  async activeByChannel(@Req() req: any, @Param('channel') channel: string) {
     const userId = req?.user?.userId;
     if (!userId) return { success: false, message: 'userId is required' };
-    return this.campaigns.getActiveCampaign(userId);
+    return this.campaigns.getActiveCampaign(userId, normChannel(channel));
   }
 
-  // ✅ start-multi — без userId в body, берём из токена
+  // ✅ Active сразу для двух каналов (удобно для фронта)
+  @Get('active')
+  async activeAll(@Req() req: any) {
+    const userId = req?.user?.userId;
+    if (!userId) return { success: false, message: 'userId is required' };
+
+    const wa = await this.campaigns.getActiveCampaign(userId, 'wa');
+    const tg = await this.campaigns.getActiveCampaign(userId, 'tg');
+
+    if (!wa.success) return wa;
+    if (!tg.success) return tg;
+
+    return { success: true, wa: wa.active, tg: tg.active };
+  }
+
   @Post('start-multi')
   async startMulti(@Req() req: any, @Body() body: any) {
     const userId = req?.user?.userId;
@@ -48,8 +64,12 @@ export class CampaignsController {
 
       repeatEnabled: toBool(body?.repeatEnabled),
       repeatMinMin: toNum(body?.repeatMinMin),
+      repeatMaxMin: undefined as any, // не используем
       repeatMinMax: toNum(body?.repeatMinMax),
-    });
+
+      // ✅ ВАЖНО: передаём channel
+      channel:body?.channel,
+    } as any);
   }
 
   @Get(':campaignId/progress')
@@ -66,7 +86,6 @@ export class CampaignsController {
     return this.campaigns.getJobs(campaignId);
   }
 
-  // API можно оставить, но кнопку уберём с фронта — ок
   @Post(':campaignId/requeue')
   async requeue(@Param('campaignId') campaignId: string, @Body() body: any) {
     if (!campaignId)

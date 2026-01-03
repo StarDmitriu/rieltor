@@ -13,21 +13,21 @@ import {
 	Upload,
 	Table,
 	Tag,
+	Segmented,
 } from 'antd'
 import type { UploadProps } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { UploadOutlined } from '@ant-design/icons'
 import { useRouter } from 'next/navigation'
-import { apiGet, apiPost } from '@/lib/api'
+import { apiPost } from '@/lib/api'
 
 const BACKEND_URL = 'http://localhost:3000'
 
-type GroupRow = {
-	wa_group_id: string
-	subject: string | null
+type UiGroupRow = {
+	jid: string
+	title: string | null
 	participants_count: number | null
-	is_announcement: boolean | null
-	is_restricted: boolean | null
+	is_restricted?: boolean | null
 	updated_at: string
 }
 
@@ -39,10 +39,15 @@ export default function TemplateCreatePage() {
 	const [mediaUrl, setMediaUrl] = useState<string | null>(null)
 	const [form] = Form.useForm()
 
-	// ✅ groups UI
-	const [groups, setGroups] = useState<GroupRow[]>([])
-	const [selectedGroupJids, setSelectedGroupJids] = useState<string[]>([])
-	const [savingGroups, setSavingGroups] = useState(false)
+	// ✅ channel + groups
+	const [channel, setChannel] = useState<'wa' | 'tg'>('wa')
+	const [waGroups, setWaGroups] = useState<UiGroupRow[]>([])
+	const [tgGroups, setTgGroups] = useState<UiGroupRow[]>([])
+
+	// ✅ selections per channel
+	const [waSelected, setWaSelected] = useState<string[]>([])
+	const [tgSelected, setTgSelected] = useState<string[]>([])
+	const [savingTargets, setSavingTargets] = useState(false)
 
 	const token = Cookies.get('token') || ''
 
@@ -70,23 +75,64 @@ export default function TemplateCreatePage() {
 		}
 	}
 
-	const loadGroups = async (uid: string) => {
+	const loadWaGroups = async (uid: string) => {
 		try {
 			const res = await fetch(`${BACKEND_URL}/whatsapp/groups/${uid}`, {
 				cache: 'no-store',
 			})
 			const json = await res.json()
 			if (!json?.success) {
-				message.error('Не удалось загрузить группы')
+				message.error('Не удалось загрузить WA группы')
+				setWaGroups([])
 				return
 			}
 
 			// announcement не даём выбирать (как и в кампании)
 			const usable = (json.groups || []).filter((g: any) => !g.is_announcement)
-			setGroups(usable)
+			setWaGroups(
+				usable.map((g: any) => ({
+					jid: String(g.wa_group_id),
+					title: g.subject ?? null,
+					participants_count: g.participants_count ?? null,
+					is_restricted: g.is_restricted ?? false,
+					updated_at: g.updated_at,
+				}))
+			)
 		} catch (e) {
 			console.error(e)
-			message.error('Ошибка сети при загрузке групп')
+			message.error('Ошибка сети при загрузке WA групп')
+		}
+	}
+
+	const loadTgGroups = async (uid: string) => {
+		try {
+			const res = await fetch(`${BACKEND_URL}/telegram/groups/${uid}`, {
+				cache: 'no-store',
+			})
+			const json = await res.json()
+			if (!json?.success) {
+				message.error('Не удалось загрузить TG группы')
+				setTgGroups([])
+				return
+			}
+
+			// ✅ показываем только те TG группы, которые выбраны на странице telegram-groups (is_selected=true)
+			const selectedOnly = (json.groups || []).filter(
+				(g: any) => g.is_selected !== false
+			)
+
+			setTgGroups(
+				selectedOnly.map((g: any) => ({
+					jid: String(g.tg_chat_id),
+					title: g.title ?? null,
+					participants_count: g.participants_count ?? null,
+					is_restricted: false,
+					updated_at: g.updated_at,
+				}))
+			)
+		} catch (e) {
+			console.error(e)
+			message.error('Ошибка сети при загрузке TG групп')
 		}
 	}
 
@@ -96,7 +142,9 @@ export default function TemplateCreatePage() {
 	}, [])
 
 	useEffect(() => {
-		if (userId) loadGroups(userId)
+		if (!userId) return
+		loadWaGroups(userId)
+		loadTgGroups(userId)
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [userId])
 
@@ -152,12 +200,12 @@ export default function TemplateCreatePage() {
 		[userId, token]
 	)
 
-	const groupColumns: ColumnsType<GroupRow> = useMemo(
+	const groupColumns: ColumnsType<UiGroupRow> = useMemo(
 		() => [
 			{
 				title: 'Название',
-				dataIndex: 'subject',
-				key: 'subject',
+				dataIndex: 'title',
+				key: 'title',
 				render: (v: any) =>
 					v || <span style={{ opacity: 0.6 }}>без названия</span>,
 			},
@@ -182,25 +230,48 @@ export default function TemplateCreatePage() {
 		[]
 	)
 
+	const currentGroups = channel === 'wa' ? waGroups : tgGroups
+	const currentSelected = channel === 'wa' ? waSelected : tgSelected
+	const setCurrentSelected = (keys: string[]) => {
+		if (channel === 'wa') setWaSelected(keys)
+		else setTgSelected(keys)
+	}
+
 	const saveTargetsForTemplate = async (templateId: string) => {
-		setSavingGroups(true)
+		setSavingTargets(true)
 		try {
-			const json: any = await apiPost('/templates/targets/set', {
-				userId,
-				templateId,
-				groupJids: selectedGroupJids,
-			})
-			if (!json?.success) {
-				message.error(`Ошибка сохранения групп: ${json?.message || 'unknown'}`)
-				return false
+			// ✅ сохраняем targets отдельно по каналам
+			const tasks: Array<{ ch: 'wa' | 'tg'; keys: string[] }> = [
+				{ ch: 'wa', keys: waSelected },
+				{ ch: 'tg', keys: tgSelected },
+			]
+
+			for (const t of tasks) {
+				// eslint-disable-next-line no-await-in-loop
+				const json: any = await apiPost('/templates/targets/set', {
+					userId,
+					templateId,
+					groupJids: t.keys,
+					channel: t.ch,
+				})
+
+				if (!json?.success) {
+					message.error(
+						`Ошибка сохранения групп (${t.ch.toUpperCase()}): ${
+							json?.message || 'unknown'
+						}`
+					)
+					return false
+				}
 			}
+
 			return true
 		} catch (e) {
 			console.error(e)
 			message.error('Ошибка сети при сохранении групп')
 			return false
 		} finally {
-			setSavingGroups(false)
+			setSavingTargets(false)
 		}
 	}
 
@@ -230,11 +301,11 @@ export default function TemplateCreatePage() {
 				return
 			}
 
-			// ✅ сразу сохраняем выбранные группы
+			// ✅ сразу сохраняем выбранные группы (и WA и TG)
 			const ok = await saveTargetsForTemplate(templateId)
 			if (!ok) return
 
-			message.success('Шаблон создан и группы сохранены')
+			message.success('Шаблон создан и группы сохранены (WA/TG)')
 			router.push(`/dashboard/templates/${templateId}`)
 		} catch (e) {
 			console.error(e)
@@ -286,7 +357,7 @@ export default function TemplateCreatePage() {
 				</Form.Item>
 
 				<Form.Item label='Медиа (картинка/видео)'>
-					<Space orientation='vertical' style={{ width: '100%' }}>
+					<Space direction='vertical' style={{ width: '100%' }}>
 						<Upload {...uploadProps}>
 							<Button
 								icon={<UploadOutlined />}
@@ -312,9 +383,7 @@ export default function TemplateCreatePage() {
 								</Button>
 							</div>
 						) : (
-							<div style={{ fontSize: 13, opacity: 0.7 }}>
-								Файл не выбран (можно оставить пустым)
-							</div>
+							<div style={{ fontSize: 13, opacity: 0.7 }}>Файл не выбран</div>
 						)}
 					</Space>
 				</Form.Item>
@@ -329,7 +398,7 @@ export default function TemplateCreatePage() {
 					</Form.Item>
 				</Space>
 
-				{/* ✅ ВЫБОР ГРУПП */}
+				{/* ✅ ВЫБОР ГРУПП WA/TG */}
 				<div
 					style={{
 						marginTop: 18,
@@ -342,38 +411,53 @@ export default function TemplateCreatePage() {
 						Куда отправлять этот шаблон
 					</div>
 
+					<div style={{ marginBottom: 10 }}>
+						<Segmented
+							value={channel}
+							onChange={v => setChannel(v as any)}
+							options={[
+								{ label: 'WhatsApp', value: 'wa' },
+								{ label: 'Telegram', value: 'tg' },
+							]}
+						/>
+					</div>
+
 					<div style={{ marginBottom: 10, opacity: 0.75 }}>
-						Выбрано групп: <b>{selectedGroupJids.length}</b>
+						Канал: <b>{channel.toUpperCase()}</b> | Выбрано:{' '}
+						<b>{currentSelected.length}</b> | Доступно:{' '}
+						<b>{currentGroups.length}</b>
 					</div>
 
 					<Space style={{ marginBottom: 10 }} wrap>
 						<Button
-							onClick={() =>
-								setSelectedGroupJids(groups.map(g => g.wa_group_id))
-							}
-							disabled={!groups.length}
+							onClick={() => setCurrentSelected(currentGroups.map(g => g.jid))}
+							disabled={!currentGroups.length}
 						>
 							Выбрать все
 						</Button>
-
 						<Button
-							onClick={() => setSelectedGroupJids([])}
-							disabled={!selectedGroupJids.length}
+							onClick={() => setCurrentSelected([])}
+							disabled={!currentSelected.length}
 						>
 							Снять все
 						</Button>
 					</Space>
 
 					<Table
-						rowKey='wa_group_id'
+						rowKey='jid'
 						columns={groupColumns}
-						dataSource={groups}
+						dataSource={currentGroups}
 						pagination={{ pageSize: 8 }}
 						rowSelection={{
-							selectedRowKeys: selectedGroupJids,
-							onChange: keys => setSelectedGroupJids(keys as string[]),
+							selectedRowKeys: currentSelected,
+							onChange: keys => setCurrentSelected(keys as string[]),
 						}}
 					/>
+
+					<div style={{ marginTop: 8, fontSize: 12, opacity: 0.75 }}>
+						Выбор сохраняется после создания шаблона. (WA и TG сохраняются
+						отдельно)
+					</div>
 				</div>
 
 				<Space style={{ marginTop: 12 }}>
@@ -381,7 +465,7 @@ export default function TemplateCreatePage() {
 						type='primary'
 						htmlType='submit'
 						loading={saving}
-						disabled={uploading || savingGroups}
+						disabled={uploading || savingTargets}
 					>
 						Сохранить шаблон
 					</Button>
@@ -393,7 +477,7 @@ export default function TemplateCreatePage() {
 						Назад
 					</Button>
 				</Space>
-			</Form>	
+			</Form>
 		</div>
 	)
 }

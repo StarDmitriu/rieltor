@@ -1,10 +1,12 @@
 'use client'
-//frontend/src/app/dashboard/campaign/page.tsx
+
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Button, message, Space, Table, Tag } from 'antd'
+import { Button, message, Space, Table, Tag, Typography, Divider } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { apiGet, apiPost } from '@/lib/api'
+
+const { Title } = Typography
 
 type Job = {
 	id: string
@@ -16,19 +18,21 @@ type Job = {
 	error: string | null
 }
 
+type ProgressOk = {
+	success: true
+	campaignId: string
+	total: number
+	sent: number
+	failed: number
+	pending: number
+	processing: number
+	skipped: number
+	done: boolean
+	jobs: Job[]
+}
+
 type ProgressResponse =
-	| {
-			success: true
-			campaignId: string
-			total: number
-			sent: number
-			failed: number
-			pending: number
-			processing: number
-			skipped: number
-			done: boolean
-			jobs: Job[]
-	  }
+	| ProgressOk
 	| { success: false; message: string; details?: any; error?: any }
 
 function pickErrorText(obj: any) {
@@ -46,13 +50,27 @@ function pickErrorText(obj: any) {
 	return details || err || ''
 }
 
+function StatusTag({ done }: { done: boolean }) {
+	return done ? <Tag color='green'>done</Tag> : <Tag color='blue'>running</Tag>
+}
+
 export default function CampaignPage() {
 	const router = useRouter()
 	const sp = useSearchParams()
-	const campaignId = (sp.get('campaignId') || '').trim()
+
+	// ✅ новый контракт: ?wa=...&tg=...
+	const waId = (sp.get('wa') || '').trim()
+	const tgId = (sp.get('tg') || '').trim()
+
+	// ✅ старый контракт поддержим: ?campaignId=...
+	const legacyId = (sp.get('campaignId') || '').trim()
+
+	const effectiveWa = waId || (legacyId ? legacyId : '')
+	const effectiveTg = tgId
 
 	const [loading, setLoading] = useState(false)
-	const [data, setData] = useState<ProgressResponse | null>(null)
+	const [wa, setWa] = useState<ProgressResponse | null>(null)
+	const [tg, setTg] = useState<ProgressResponse | null>(null)
 
 	const POLL_MS = 5000
 	const timerRef = useRef<number | null>(null)
@@ -64,19 +82,17 @@ export default function CampaignPage() {
 		}
 	}
 
-	const startPolling = () => {
-		stopPolling()
-		timerRef.current = window.setInterval(load, POLL_MS)
+	const loadOne = async (cid: string) => {
+		const json: ProgressResponse = await apiGet(`/campaigns/${cid}/progress`)
+		return json
 	}
 
 	const load = async () => {
-		if (!campaignId) return
+		if (!effectiveWa && !effectiveTg) return
 		setLoading(true)
 		try {
-			const json: ProgressResponse = await apiGet(
-				`/campaigns/${campaignId}/progress`
-			)
-			setData(json)
+			if (effectiveWa) setWa(await loadOne(effectiveWa))
+			if (effectiveTg) setTg(await loadOne(effectiveTg))
 		} catch (e) {
 			console.error(e)
 			message.error('Ошибка сети при загрузке прогресса')
@@ -85,10 +101,14 @@ export default function CampaignPage() {
 		}
 	}
 
-	const stopCampaign = async () => {
-		if (!campaignId) return
+	const startPolling = () => {
+		stopPolling()
+		timerRef.current = window.setInterval(load, POLL_MS)
+	}
+
+	const stopCampaign = async (cid: string) => {
 		try {
-			const json: any = await apiPost(`/campaigns/${campaignId}/stop`)
+			const json: any = await apiPost(`/campaigns/${cid}/stop`)
 			if (!json?.success) {
 				const extra = pickErrorText(json)
 				message.error(
@@ -98,7 +118,7 @@ export default function CampaignPage() {
 				)
 				return
 			}
-			message.success('Рассылка остановлена')
+			message.success(`Остановлено: ${cid}`)
 			await load()
 		} catch (e) {
 			console.error(e)
@@ -107,35 +127,11 @@ export default function CampaignPage() {
 	}
 
 	useEffect(() => {
-		if (!campaignId) return
 		load()
 		startPolling()
 		return () => stopPolling()
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [campaignId])
-
-	const summary = useMemo(() => {
-		if (!data || !(data as any).success) return null
-		const d: any = data
-		return (
-			<div style={{ marginBottom: 12 }}>
-				<div>total: {d.total}</div>
-				<div>sent: {d.sent}</div>
-				<div>failed: {d.failed}</div>
-				<div>pending: {d.pending}</div>
-				<div>processing: {d.processing}</div>
-				<div>skipped: {d.skipped}</div>
-				<div style={{ marginTop: 6 }}>
-					Статус:{' '}
-					{d.done ? (
-						<Tag color='green'>done</Tag>
-					) : (
-						<Tag color='blue'>running</Tag>
-					)}
-				</div>
-			</div>
-		)
-	}, [data])
+	}, [effectiveWa, effectiveTg])
 
 	const columns: ColumnsType<Job> = [
 		{ title: 'Group', dataIndex: 'group_jid', key: 'group_jid' },
@@ -166,30 +162,62 @@ export default function CampaignPage() {
 		},
 	]
 
-	if (!campaignId) {
+	const waSummary = useMemo(() => {
+		if (!wa || !(wa as any).success) return null
+		const d = wa as ProgressOk
+		return (
+			<div style={{ marginBottom: 12 }}>
+				<div>total: {d.total}</div>
+				<div>sent: {d.sent}</div>
+				<div>failed: {d.failed}</div>
+				<div>pending: {d.pending}</div>
+				<div>processing: {d.processing}</div>
+				<div>skipped: {d.skipped}</div>
+				<div style={{ marginTop: 6 }}>
+					Статус: <StatusTag done={d.done} />
+				</div>
+			</div>
+		)
+	}, [wa])
+
+	const tgSummary = useMemo(() => {
+		if (!tg || !(tg as any).success) return null
+		const d = tg as ProgressOk
+		return (
+			<div style={{ marginBottom: 12 }}>
+				<div>total: {d.total}</div>
+				<div>sent: {d.sent}</div>
+				<div>failed: {d.failed}</div>
+				<div>pending: {d.pending}</div>
+				<div>processing: {d.processing}</div>
+				<div>skipped: {d.skipped}</div>
+				<div style={{ marginTop: 6 }}>
+					Статус: <StatusTag done={d.done} />
+				</div>
+			</div>
+		)
+	}, [tg])
+
+	if (!effectiveWa && !effectiveTg) {
 		return (
 			<div style={{ padding: 24, color: 'crimson' }}>
-				campaignId не передан в URL
+				Не переданы параметры в URL. Ожидаю:
+				<div style={{ marginTop: 8 }}>
+					<code>?wa=...&tg=...</code> или <code>?wa=...</code> /{' '}
+					<code>?tg=...</code>
+				</div>
 			</div>
 		)
 	}
 
 	return (
 		<div style={{ padding: 24 }}>
-			<h1>Прогресс рассылки</h1>
+			<Title level={3}>Прогресс рассылок</Title>
 
 			<div style={{ marginBottom: 12 }}>
-				<div style={{ marginBottom: 8 }}>
-					campaignId: <code>{campaignId}</code>
-				</div>
-
 				<Space wrap>
 					<Button onClick={load} loading={loading}>
 						Обновить
-					</Button>
-
-					<Button danger onClick={stopCampaign}>
-						Остановить рассылку
 					</Button>
 
 					<Button onClick={() => router.push('/dashboard/campaigns')}>
@@ -198,22 +226,73 @@ export default function CampaignPage() {
 				</Space>
 			</div>
 
-			{data && !(data as any).success ? (
-				<div style={{ color: 'crimson' }}>
-					Ошибка: {(data as any).message || 'unknown'}
-					{pickErrorText(data) ? ` — ${pickErrorText(data)}` : ''}
+			{/* WA */}
+			{effectiveWa ? (
+				<div style={{ marginBottom: 24 }}>
+					<Title level={4}>WhatsApp</Title>
+					<div style={{ marginBottom: 8 }}>
+						campaignId: <code>{effectiveWa}</code>
+					</div>
+
+					<Space wrap style={{ marginBottom: 12 }}>
+						<Button danger onClick={() => stopCampaign(effectiveWa)}>
+							Остановить WA
+						</Button>
+					</Space>
+
+					{wa && !(wa as any).success ? (
+						<div style={{ color: 'crimson', marginBottom: 12 }}>
+							Ошибка: {(wa as any).message || 'unknown'}
+							{pickErrorText(wa) ? ` — ${pickErrorText(wa)}` : ''}
+						</div>
+					) : null}
+
+					{waSummary}
+
+					<Table
+						rowKey='id'
+						columns={columns}
+						dataSource={(wa as any)?.success ? (wa as any).jobs : []}
+						loading={loading}
+						pagination={{ pageSize: 10 }}
+					/>
 				</div>
 			) : null}
 
-			{summary}
+			{effectiveWa && effectiveTg ? <Divider /> : null}
 
-			<Table
-				rowKey='id'
-				columns={columns}
-				dataSource={(data as any)?.success ? (data as any).jobs : []}
-				loading={loading}
-				pagination={{ pageSize: 10 }}
-			/>
+			{/* TG */}
+			{effectiveTg ? (
+				<div>
+					<Title level={4}>Telegram</Title>
+					<div style={{ marginBottom: 8 }}>
+						campaignId: <code>{effectiveTg}</code>
+					</div>
+
+					<Space wrap style={{ marginBottom: 12 }}>
+						<Button danger onClick={() => stopCampaign(effectiveTg)}>
+							Остановить TG
+						</Button>
+					</Space>
+
+					{tg && !(tg as any).success ? (
+						<div style={{ color: 'crimson', marginBottom: 12 }}>
+							Ошибка: {(tg as any).message || 'unknown'}
+							{pickErrorText(tg) ? ` — ${pickErrorText(tg)}` : ''}
+						</div>
+					) : null}
+
+					{tgSummary}
+
+					<Table
+						rowKey='id'
+						columns={columns}
+						dataSource={(tg as any)?.success ? (tg as any).jobs : []}
+						loading={loading}
+						pagination={{ pageSize: 10 }}
+					/>
+				</div>
+			) : null}
 		</div>
 	)
 }

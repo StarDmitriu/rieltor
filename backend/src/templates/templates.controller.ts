@@ -88,23 +88,25 @@ export class TemplatesController {
 
     return this.templates.remove(userId, templateId);
   }
-  @Get('targets/:userId/:templateId')
-  async getTargets(
+  
+  @Get('targets/:userId/:templateId/:channel')
+  async getTargetsByChannel(
     @Param('userId') userId: string,
     @Param('templateId') templateId: string,
+    @Param('channel') channel: string,
   ) {
     if (!userId) return { success: false, message: 'userId is required' };
     if (!templateId)
       return { success: false, message: 'templateId is required' };
-    return this.templates.getTargets(userId, templateId);
+    return this.templates.getTargets(userId, templateId, channel);
   }
 
-  // ✅ сохранить выбранные группы для шаблона (полная замена списка)
   @Post('targets/set')
   async setTargets(@Body() body: any) {
     const userId = body?.userId;
     const templateId = body?.templateId;
     const groupJids = body?.groupJids;
+    const channel = body?.channel;
 
     if (!userId) return { success: false, message: 'userId is required' };
     if (!templateId)
@@ -112,6 +114,6 @@ export class TemplatesController {
     if (!Array.isArray(groupJids))
       return { success: false, message: 'groupJids must be array' };
 
-    return this.templates.setTargets(userId, templateId, groupJids);
+    return this.templates.setTargets(userId, templateId, groupJids, channel);
   }
 }

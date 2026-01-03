@@ -459,43 +459,58 @@ export class TemplatesService {
     return { success: true };
   }
 
-  async getTargets(userId: string, templateId: string) {
+  // backend/src/templates/templates.service.ts
+
+  private normChannel(v: any): 'wa' | 'tg' {
+    return String(v || 'wa').toLowerCase() === 'tg' ? 'tg' : 'wa';
+  }
+
+  async getTargets(userId: string, templateId: string, channel?: string) {
     const supabase = this.supabaseService.getClient();
+    const ch = this.normChannel(channel);
 
     const { data, error } = await supabase
       .from('template_group_targets')
       .select('group_jid')
       .eq('user_id', userId)
       .eq('template_id', templateId)
+      .eq('channel', ch)
       .eq('enabled', true);
 
-    if (error)
+    if (error) {
       return {
         success: false,
         message: 'supabase_targets_select_error',
         error,
       };
+    }
 
     const groupJids = (data ?? []).map((x: any) => String(x.group_jid));
     return { success: true, groupJids };
   }
 
-  async setTargets(userId: string, templateId: string, groupJids: string[]) {
+  async setTargets(
+    userId: string,
+    templateId: string,
+    groupJids: string[],
+    channel?: string,
+  ) {
     const supabase = this.supabaseService.getClient();
+    const ch = this.normChannel(channel);
 
-    // нормализуем + убираем мусор
     const unique = Array.from(
       new Set(
         (groupJids ?? []).map((x) => String(x || '').trim()).filter(Boolean),
       ),
     );
 
-    // 1) удаляем старые
+    // удаляем старые таргеты только для конкретного канала
     const { error: delErr } = await supabase
       .from('template_group_targets')
       .delete()
       .eq('user_id', userId)
-      .eq('template_id', templateId);
+      .eq('template_id', templateId)
+      .eq('channel', ch);
 
     if (delErr) {
       return {
@@ -505,16 +520,13 @@ export class TemplatesService {
       };
     }
 
-    // 2) если пусто — просто сохраняем пустой набор (значит "никуда не отправлять")
-    if (!unique.length) {
-      return { success: true, count: 0 };
-    }
+    if (!unique.length) return { success: true, count: 0 };
 
-    // 3) вставляем новый набор
     const rows = unique.map((jid) => ({
       user_id: userId,
       template_id: templateId,
       group_jid: jid,
+      channel: ch,
       enabled: true,
       updated_at: new Date().toISOString(),
     }));

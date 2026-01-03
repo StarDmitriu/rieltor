@@ -249,7 +249,7 @@ export class CampaignBullWorker implements OnModuleInit, OnModuleDestroy {
 
     const { data: dbJob, error: jobErr } = await supabase
       .from('campaign_jobs')
-      .select('id, user_id, group_jid, template_id, status')
+      .select('id, user_id, group_jid, template_id, status, channel')
       .eq('id', data.jobId)
       .maybeSingle();
 

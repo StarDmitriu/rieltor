@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Cookies from 'js-cookie'
 import { Button, Table, message, Space, Tag, Checkbox } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
+import { useRouter } from 'next/navigation'
 
 const BACKEND_URL = 'http://localhost:3000'
 
@@ -38,6 +39,7 @@ export default function GroupsPage() {
 	const [syncing, setSyncing] = useState(false)
 	const [savingMap, setSavingMap] = useState<Record<string, boolean>>({})
 	const [groups, setGroups] = useState<GroupRow[]>([])
+	const router = useRouter()
 
 	const token = Cookies.get('token') || ''
 
@@ -63,6 +65,10 @@ export default function GroupsPage() {
 		} finally {
 			setLoadingMe(false)
 		}
+	}
+
+	const dash = () => {
+		router.push('/dashboard/telegram-groups')
 	}
 
 	const fetchGroups = async (uid: string) => {
@@ -285,6 +291,19 @@ export default function GroupsPage() {
 					<Button disabled={!groups.length} onClick={() => selectAll(false)}>
 						Снять все
 					</Button>
+
+					<button
+						onClick={dash}
+						style={{
+							padding: '6px 12px',
+							borderRadius: 8,
+							border: '1px solid #ccc',
+							background: '#f5f5f5',
+							cursor: 'pointer',
+						}}
+					>
+					Telegram группы
+					</button>
 				</Space>
 			</div>
 

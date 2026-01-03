@@ -74,7 +74,7 @@ export class CampaignsService {
   // =========================
   // ACTIVE CAMPAIGN (running) for user
   // =========================
-  async getActiveCampaign(userId: string) {
+  async getActiveCampaign(userId: string, channel: 'wa' | 'tg') {
     const supabase = this.supabaseService.getClient();
 
     const { data, error } = await supabase
@@ -82,6 +82,7 @@ export class CampaignsService {
       .select('id, status, created_at')
       .eq('user_id', userId)
       .eq('status', 'running')
+      .eq('channel', channel)
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -96,9 +97,9 @@ export class CampaignsService {
 
     return {
       success: true,
-      active: data ? { campaignId: (data as any).id } : null,
+      active: data ? { campaignId: String((data as any).id) } : null,
     };
-  }
+  } 
 
   // =========================
   // START MULTI (если уже есть running — вернуть её)
@@ -106,15 +107,18 @@ export class CampaignsService {
   async startMulti(userId: string, opts: StartMultiOptions = {}) {
     const supabase = this.supabaseService.getClient();
 
-    // 0) защита от запуска 2й кампании
+    const ch = opts.channel === 'tg' ? 'tg' : 'wa';
+
     const { data: running, error: rErr } = await supabase
       .from('campaigns')
       .select('id')
       .eq('user_id', userId)
       .eq('status', 'running')
+      .eq('channel', ch) // ✅ ВАЖНО
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
+
 
     if (rErr) {
       return {
@@ -961,7 +965,7 @@ export class CampaignsService {
     const { data: inserted, error: jErr } = await supabase
       .from('campaign_jobs')
       .insert(jobsToInsert)
-      .select('id, user_id, group_jid, template_id, scheduled_at');
+      .select('id, user_id, group_jid, template_id, scheduled_at, channel');
 
     if (jErr || !inserted?.length) {
       return {
@@ -1001,6 +1005,7 @@ export class CampaignsService {
           userId: row.user_id,
           groupJid: row.group_jid,
           templateId: row.template_id,
+          channel: row.channel,
         },
         {
           jobId: deterministicJobId,

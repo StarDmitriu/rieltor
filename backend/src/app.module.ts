@@ -11,7 +11,7 @@ import { CampaignsModule } from './campaigns/campaigns.module';
 import { QueueModule } from './queue/queue.module';
 import { SheetsModule } from './sheets/sheets.module';
 import { TelegramModule } from './telegram/telegram.module';
-
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -23,6 +23,7 @@ import { TelegramModule } from './telegram/telegram.module';
     QueueModule,
     SheetsModule,
     TelegramModule,
+    AdminModule,
   ],
   controllers: [AppController],
   providers: [AppService, SmsService],

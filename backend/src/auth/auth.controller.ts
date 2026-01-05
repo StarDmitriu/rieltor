@@ -41,8 +41,9 @@ export class AuthController {
 
       const user = await this.auth.getUserById(payload.userId);
       if (!user) return { success: false, message: 'User not found' };
+      const { tg_session, ...safeUser } = user as any;
+      return { success: true, user: safeUser };
 
-      return { success: true, user };
     } catch (e) {
       console.error('JWT verify error:', e);
       return { success: false, message: 'Invalid token' };
@@ -74,7 +75,9 @@ export class AuthController {
       }
 
       const user = await this.auth.updateProfile(payload.userId, body || {});
-      return { success: true, user };
+      const { tg_session, ...safeUser } = user as any;
+      return { success: true, user: safeUser };
+
     } catch (e) {
       console.error('JWT verify error (update-profile):', e);
       return { success: false, message: 'Invalid token' };

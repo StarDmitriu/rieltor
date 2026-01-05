@@ -66,6 +66,8 @@ export default function CabinetPage() {
 		router.push('/auth/phone')
 	}
 
+	const goSubscription = () => router.push('/cabinet/subscription')
+
 	const dash = () => {
 		router.push('/dashboard/groups')
 	}
@@ -158,6 +160,20 @@ export default function CabinetPage() {
 					}}
 				>
 					Шаблоны
+				</button>
+
+				<button
+					onClick={goSubscription}
+					style={{
+						marginLeft: 8,
+						padding: '6px 12px',
+						borderRadius: 8,
+						border: '1px solid #ccc',
+						background: '#f5f5f5',
+						cursor: 'pointer',
+					}}
+				>
+					Подписка
 				</button>
 			</div>
 

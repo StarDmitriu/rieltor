@@ -398,6 +398,7 @@ export class WhatsappService {
         );
 
         if (loggedOut) {
+          s.restartAttempts = 0; // внёс изменения которые не протестил
           const authDir2 = this.getAuthDir(userId);
           try {
             if (fs.existsSync(authDir2)) {

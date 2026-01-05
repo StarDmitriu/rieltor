@@ -5,11 +5,13 @@ import { CampaignsService } from './campaigns.service';
 import { WhatsappModule } from '../whatsapp/whatsapp.module';
 import { QueueModule } from '../queue/queue.module';
 import { CampaignRepeatService } from './campaign-repeat.service';
+import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
+import { SubscriptionGuard } from '../subscriptions/subscription.guard';
 
 @Module({
-  imports: [SupabaseModule, WhatsappModule, QueueModule],
+  imports: [SupabaseModule, WhatsappModule, QueueModule, SubscriptionsModule],
   controllers: [CampaignsController],
-  providers: [CampaignsService, CampaignRepeatService],
+  providers: [CampaignsService, CampaignRepeatService, SubscriptionGuard],
   exports: [CampaignsService],
 })
 export class CampaignsModule {}

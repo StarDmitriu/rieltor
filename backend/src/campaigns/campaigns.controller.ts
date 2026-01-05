@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import { CampaignsService } from './campaigns.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { SubscriptionGuard } from '../subscriptions/subscription.guard';
 
 function toBool(v: any) {
   return v === true || v === 'true' || v === 1 || v === '1';
@@ -51,6 +52,7 @@ export class CampaignsController {
   }
 
   @Post('start-multi')
+  @UseGuards(JwtAuthGuard, SubscriptionGuard)
   async startMulti(@Req() req: any, @Body() body: any) {
     const userId = req?.user?.userId;
     if (!userId) return { success: false, message: 'userId is required' };
@@ -88,6 +90,7 @@ export class CampaignsController {
   }
 
   @Post(':campaignId/requeue')
+  @UseGuards(JwtAuthGuard, SubscriptionGuard)
   async requeue(@Param('campaignId') campaignId: string, @Body() body: any) {
     if (!campaignId)
       return { success: false, message: 'campaignId is required' };

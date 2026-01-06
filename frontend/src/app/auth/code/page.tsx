@@ -10,6 +10,8 @@ export default function CodePage() {
 
 	const phone = params.get('phone') || '' // ✅ FIX
 	const mode = params.get('mode') || 'login' // login | register
+	const ref = params.get('ref') || ''
+
 
 	const [code, setCode] = useState('')
 	const [loading, setLoading] = useState(false)
@@ -24,6 +26,7 @@ export default function CodePage() {
 		setLoading(true)
 		try {
 			let body: any = { phone, code }
+			if (ref) body.ref = ref
 
 			if (mode === 'register' && typeof window !== 'undefined') {
 				const raw = sessionStorage.getItem('registerProfile')

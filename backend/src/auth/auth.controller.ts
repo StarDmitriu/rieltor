@@ -14,14 +14,19 @@ export class AuthController {
 
   @Post('verify-code')
   verify(@Body() body: any) {
-    const { phone, code, full_name, gender, telegram, birthday } = body;
+    const { phone, code, full_name, gender, telegram, birthday, ref } = body;
 
-    return this.auth.verifyCode(phone, code, {
-      full_name,
-      gender,
-      telegram,
-      birthday,
-    });
+    return this.auth.verifyCode(
+      phone,
+      code,
+      {
+        full_name,
+        gender,
+        telegram,
+        birthday,
+      },
+      ref,
+    );
   }
 
   @Get('me')
@@ -43,7 +48,6 @@ export class AuthController {
       if (!user) return { success: false, message: 'User not found' };
       const { tg_session, ...safeUser } = user as any;
       return { success: true, user: safeUser };
-
     } catch (e) {
       console.error('JWT verify error:', e);
       return { success: false, message: 'Invalid token' };
@@ -77,7 +81,6 @@ export class AuthController {
       const user = await this.auth.updateProfile(payload.userId, body || {});
       const { tg_session, ...safeUser } = user as any;
       return { success: true, user: safeUser };
-
     } catch (e) {
       console.error('JWT verify error (update-profile):', e);
       return { success: false, message: 'Invalid token' };

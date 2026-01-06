@@ -9,6 +9,7 @@ export default function RegisterPage() {
   const params = useSearchParams()
 
 	const initialPhone = params.get('phone') || ''
+	const ref = params.get('ref') || ''
 
 	const [fullName, setFullName] = useState('')
   const [phone, setPhone] = useState(initialPhone)
@@ -56,7 +57,8 @@ export default function RegisterPage() {
 			}
 
 			// 3) переходим на страницу ввода кода в режиме register
-			router.push(`/auth/code?phone=${encodeURIComponent(phone)}&mode=register`)
+			router.push(`/auth/code?phone=${encodeURIComponent(phone)}&mode=register&ref=${encodeURIComponent(ref || '')}`)
+
 		} catch (err) {
 			console.error(err)
 			alert('Ошибка сети, попробуйте ещё раз')

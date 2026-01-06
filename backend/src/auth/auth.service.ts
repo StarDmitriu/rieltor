@@ -1,8 +1,11 @@
+//backend/src/auth/auth.service.ts
 import { Injectable } from '@nestjs/common';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import * as jwt from 'jsonwebtoken';
 import { SmsService } from '../sms/sms.service';
 import { requireEnv } from '../config/env';
+import { randomBytes } from 'crypto';
+
 
 type ProfileUpdate = {
   full_name?: string;
@@ -95,11 +98,14 @@ export class AuthService {
   }
 
   private async createUser(phone: string) {
+    const referral_code = await this.ensureUniqueReferralCode();
+
     const { data, error } = await this.supabase
       .from('users')
       .insert({
         phone,
         is_verified: true,
+        referral_code, // ✅
       })
       .select()
       .single();
@@ -178,6 +184,55 @@ export class AuthService {
     return data;
   }
 
+  private generateReferralCode(): string {
+    // короткий и читабельный код (10 символов)
+    return randomBytes(6)
+      .toString('base64url')
+      .replace(/[-_]/g, '')
+      .slice(0, 10);
+  }
+
+  private async ensureUniqueReferralCode(): Promise<string> {
+    // 10 попыток найти уникальный код
+    for (let i = 0; i < 10; i++) {
+      const code = this.generateReferralCode();
+
+      const { data, error } = await this.supabase
+        .from('users')
+        .select('id')
+        .eq('referral_code', code)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Supabase check referral_code error:', error);
+        throw error;
+      }
+
+      if (!data) return code;
+    }
+
+    // на крайний случай — UUID кусок
+    return (Date.now().toString(36) + this.generateReferralCode()).slice(0, 12);
+  }
+
+  private async findUserByReferralCode(code: string) {
+    const ref = String(code || '').trim();
+    if (!ref) return null;
+
+    const { data, error } = await this.supabase
+      .from('users')
+      .select('id,referral_code')
+      .eq('referral_code', ref)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Supabase findUserByReferralCode error:', error);
+      throw error;
+    }
+
+    return data;
+  }
+
   // ---------- SEND CODE ----------
 
   async sendCode(phone: string) {
@@ -241,7 +296,7 @@ export class AuthService {
 
   // ---------- VERIFY CODE + LOGIN/REGISTER ----------
 
-  async verifyCode(phone: string, code: string, profile?: ProfileUpdate) {
+  async verifyCode(phone: string, code: string, profile?: ProfileUpdate, ref?: string) {
     const normPhone = this.normalizePhone(phone);
     const normCode = String(code || '').trim();
 
@@ -314,6 +369,56 @@ export class AuthService {
       if (profile) {
         user = await this.updateProfile(user.id, profile);
       }
+    }
+
+    // --- рефералка (после того как user создан/найден) ---
+    try {
+      const refCode = String(ref || '').trim();
+
+      if (refCode) {
+        const referrer = await this.findUserByReferralCode(refCode);
+
+        // нельзя сам себя
+        if (referrer?.id && referrer.id !== user.id) {
+          // привязываем только если ещё не привязан
+          if (!user.referred_by_user_id) {
+            // 1) обновляем user.referred_by_user_id
+            const { data: updatedUser, error: upErr } = await this.supabase
+              .from('users')
+              .update({ referred_by_user_id: referrer.id })
+              .eq('id', user.id)
+              .select()
+              .maybeSingle();
+
+            if (upErr) {
+              console.warn('referred_by_user_id update failed:', upErr);
+            } else if (updatedUser) {
+              user = updatedUser; // ✅ чтобы /auth/me видел поле
+            }
+
+            // 2) записываем referrals (если дубль — таблица сама не даст)
+            const { error: refErr } = await this.supabase
+              .from('referrals')
+              .insert({
+                referrer_user_id: referrer.id,
+                referred_user_id: user.id,
+                status: 'registered',
+                reward_type: 'days',
+                reward_value: 7, // награда по ТЗ: неделя
+              });
+
+            if (refErr) {
+              // если уже есть запись — это нормально (unique ограничение)
+              console.warn(
+                'referrals insert failed:',
+                refErr?.message || refErr,
+              );
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('referral logic skipped due to error:', e);
     }
 
     const payload = { userId: user.id, phone: user.phone };

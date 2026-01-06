@@ -9,6 +9,7 @@ import { SheetsBlock } from '@/components/SheetsBlock'
 import { TemplatesSyncBlock } from '@/components/TemplatesSyncBlock'
 import { CampaignBlock } from '@/components/CampaignBlock'
 import { TelegramConnect } from '@/components/TelegramConnect'
+import { apiGet } from '@/lib/api'
 
 interface User {
 	id: string
@@ -17,9 +18,8 @@ interface User {
 	gender?: string | null
 	telegram?: string | null
 	birthday?: string | null
-
-	// ✅ у тебя в БД так называется
 	gsheet_url?: string | null
+	referral_code?: string | null
 }
 
 export default function CabinetPage() {
@@ -175,6 +175,73 @@ export default function CabinetPage() {
 				>
 					Подписка
 				</button>
+			</div>
+
+			{/* ✅ Реферальная ссылка */}
+			<div
+				style={{
+					marginTop: 16,
+					padding: 16,
+					borderRadius: 12,
+					border: '1px solid #e0e0e0',
+					maxWidth: 560,
+				}}
+			>
+				<h2>Реферальная ссылка</h2>
+
+				{!user.referral_code ? (
+					<p style={{ marginTop: 8 }}>
+						Реферальный код ещё не создан. (Если аккаунт старый — нужно один раз
+						заполнить referral_code в БД.)
+					</p>
+				) : (
+					(() => {
+						const link =
+							typeof window !== 'undefined'
+								? `${
+										window.location.origin
+								  }/auth/register?ref=${encodeURIComponent(
+										user.referral_code as string
+								  )}`
+								: ''
+
+						return (
+							<>
+								<p style={{ marginTop: 8 }}>
+									Отправь другу эту ссылку. Если он оплатит тариф — тебе
+									начислим +7 дней.
+								</p>
+
+								<input
+									value={link}
+									readOnly
+									style={{ width: '100%', padding: 10, marginTop: 8 }}
+								/>
+
+								<button
+									style={{
+										marginTop: 10,
+										padding: '6px 12px',
+										borderRadius: 8,
+										border: '1px solid #ccc',
+										background: '#f5f5f5',
+										cursor: 'pointer',
+									}}
+									onClick={async () => {
+										try {
+											await navigator.clipboard.writeText(link)
+											alert('Ссылка скопирована')
+										} catch {
+											alert('Не удалось скопировать')
+										}
+									}}
+								>
+									Скопировать
+								</button>
+							</>
+						)
+					})()
+				)}
 			</div>
 
 			{/* ✅ таблица */}

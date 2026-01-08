@@ -1,7 +1,8 @@
 'use client'
-
+import './WhatsappConnectBlock.css'
 import { useEffect, useRef, useState } from 'react'
 import { QRCodeCanvas } from 'qrcode.react'
+import { WhatsappLinkingSteps } from './WhatsappLinkingSteps'
 
 type WhatsappStatus =
 	| 'not_connected'
@@ -21,7 +22,8 @@ interface StatusResponse {
 }
 
 export function WhatsappConnectBlock({ userId }: { userId: string }) {
-	const backendUrl = 'http://localhost:3000'
+	const backendUrl =
+		process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000'
 
 	const [status, setStatus] = useState<WhatsappStatus>('not_connected')
 	const [qr, setQr] = useState<string | null>(null)
@@ -124,14 +126,13 @@ export function WhatsappConnectBlock({ userId }: { userId: string }) {
 
 	// ----- UI -----
 	let yellowContent: React.ReactNode = null
-
+			/*<p style={{ marginTop: 8, marginBottom: 0 }}>
+					Теперь сервис может отправлять сообщения от вашего имени.
+				</p>*/
 	if (status === 'connected') {
 		yellowContent = (
 			<div style={{ textAlign: 'center' }}>
 				<strong>WhatsApp успешно подключён</strong>
-				<p style={{ marginTop: 8, marginBottom: 0 }}>
-					Теперь сервис может отправлять сообщения от вашего имени.
-				</p>
 			</div>
 		)
 	} else if (status === 'pending_qr' && qr) {
@@ -140,9 +141,6 @@ export function WhatsappConnectBlock({ userId }: { userId: string }) {
 				<p style={{ marginBottom: 12 }}>
 					Отсканируйте QR-код в WhatsApp:
 					<br />
-					<span style={{ fontSize: 14 }}>
-						Настройки → Связанные устройства → Связать устройство
-					</span>
 				</p>
 				<QRCodeCanvas value={qr} size={220} />
 			</div>
@@ -152,7 +150,7 @@ export function WhatsappConnectBlock({ userId }: { userId: string }) {
 			<div style={{ textAlign: 'center' }}>
 				<strong>Запускаем подключение к WhatsApp…</strong>
 				<p style={{ marginTop: 8, marginBottom: 0 }}>
-					Подождите несколько секунд, скоро появится QR-код.
+					Подождите несколько секунд
 				</p>
 			</div>
 		)
@@ -161,14 +159,13 @@ export function WhatsappConnectBlock({ userId }: { userId: string }) {
 			<div style={{ textAlign: 'center' }}>
 				<div>Не удалось подключиться. Попробуйте ещё раз.</div>
 				{errorText ? (
-					<div style={{ marginTop: 8, fontSize: 12, opacity: 0.8 }}>
+					<div>
 						{errorText}
 					</div>
 				) : null}
 				<button
 					onClick={startConnect}
 					disabled={loading}
-					style={{ marginTop: 12, padding: '10px 16px' }}
 				>
 					{loading ? 'Запуск…' : 'Сканировать QR-код ещё раз'}
 				</button>
@@ -177,7 +174,7 @@ export function WhatsappConnectBlock({ userId }: { userId: string }) {
 	} else {
 		// not_connected
 		yellowContent = (
-			<div style={{ textAlign: 'center' }}>
+			<div className='yellowContent'>
 				<div>Сканируйте QR-код, чтобы подключить аккаунт</div>
 				<button
 					onClick={startConnect}
@@ -191,23 +188,18 @@ export function WhatsappConnectBlock({ userId }: { userId: string }) {
 	}
 
 	return (
-		<div style={{ border: '1px solid #eee', borderRadius: 12, padding: 24 }}>
-			<h2 style={{ marginTop: 0 }}>Подключите WhatsApp</h2>
-			<p style={{ marginTop: 0 }}>
+		<div className='wa'>
+			<h2 className='wa-title'>Подключите WhatsApp</h2>
+			<p className='wa-text'>
 				Чтобы сервис мог отправлять рассылки от вашего имени, подключите ваш
 				WhatsApp-аккаунт через QR-код.
 			</p>
 
-			<div
-				style={{
-					marginTop: 16,
-					background: '#F7E28C',
-					borderRadius: 18,
-					padding: 24,
-				}}
-			>
-				{yellowContent}
+			<div className='instruction '>
+				<WhatsappLinkingSteps />
 			</div>
+
+			<div className='yellowContent-cont'>{yellowContent}</div>
 		</div>
 	)
 }

@@ -1,12 +1,14 @@
 'use client'
-//frontend/src/app/dashboard/groups/page.tsx
-import { useEffect, useState } from 'react'
+
+import { useEffect, useMemo, useState } from 'react'
 import Cookies from 'js-cookie'
-import { Button, Table, message, Space, Tag, Checkbox } from 'antd'
+import { Button, Table, message, Space, Tag, Checkbox, Input } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { useRouter } from 'next/navigation'
+import styles from '../telegram-groups/telegram-groups.module.css' // <-- берем те же стили
 
-const BACKEND_URL = 'http://localhost:3000'
+const BACKEND_URL =
+	process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000'
 
 type MeResponse =
 	| {
@@ -26,20 +28,19 @@ type GroupRow = {
 }
 
 type GroupsResponse =
-	| {
-			success: true
-			groups: GroupRow[]
-	  }
+	| { success: true; groups: GroupRow[] }
 	| { success: false; message: string }
 
 export default function GroupsPage() {
+	const router = useRouter()
+
 	const [userId, setUserId] = useState<string>('')
 	const [loadingMe, setLoadingMe] = useState(false)
 	const [loadingGroups, setLoadingGroups] = useState(false)
 	const [syncing, setSyncing] = useState(false)
 	const [savingMap, setSavingMap] = useState<Record<string, boolean>>({})
 	const [groups, setGroups] = useState<GroupRow[]>([])
-	const router = useRouter()
+	const [q, setQ] = useState('')
 
 	const token = Cookies.get('token') || ''
 
@@ -50,14 +51,11 @@ export default function GroupsPage() {
 				headers: { Authorization: `Bearer ${token}` },
 				cache: 'no-store',
 			})
-
 			const data: MeResponse = await res.json()
-
 			if (!data.success) {
 				message.error(data.message || 'Не удалось получить /auth/me')
 				return
 			}
-
 			setUserId(data.user.id)
 		} catch (e) {
 			console.error(e)
@@ -65,10 +63,6 @@ export default function GroupsPage() {
 		} finally {
 			setLoadingMe(false)
 		}
-	}
-
-	const dash = () => {
-		router.push('/dashboard/telegram-groups')
 	}
 
 	const fetchGroups = async (uid: string) => {
@@ -79,11 +73,8 @@ export default function GroupsPage() {
 				cache: 'no-store',
 			})
 			const data: GroupsResponse = await res.json()
-			if ((data as any).success) {
-				setGroups((data as any).groups || [])
-			} else {
-				message.error('Не удалось загрузить группы из БД')
-			}
+			if ((data as any).success) setGroups((data as any).groups || [])
+			else message.error('Не удалось загрузить группы из БД')
 		} catch (e) {
 			console.error(e)
 			message.error('Ошибка сети при загрузке групп')
@@ -93,10 +84,7 @@ export default function GroupsPage() {
 	}
 
 	const syncGroups = async () => {
-		if (!userId) {
-			message.warning('Нет userId — перелогиньтесь')
-			return
-		}
+		if (!userId) return message.warning('Нет userId — перелогиньтесь')
 		setSyncing(true)
 		try {
 			const res = await fetch(`${BACKEND_URL}/whatsapp/sync-groups`, {
@@ -128,13 +116,11 @@ export default function GroupsPage() {
 	const setSelected = async (waGroupId: string, next: boolean) => {
 		if (!userId) return
 
-		// optimistic UI
 		setGroups(prev =>
 			prev.map(g =>
 				g.wa_group_id === waGroupId ? { ...g, is_selected: next } : g
 			)
 		)
-
 		setSavingMap(prev => ({ ...prev, [waGroupId]: true }))
 
 		try {
@@ -148,12 +134,10 @@ export default function GroupsPage() {
 				}),
 			})
 			const json = await res.json()
-
 			if (!json?.success) {
 				message.error(
 					`Не удалось сохранить выбор группы: ${json?.message || 'unknown'}`
 				)
-				// rollback
 				setGroups(prev =>
 					prev.map(g =>
 						g.wa_group_id === waGroupId ? { ...g, is_selected: !next } : g
@@ -163,7 +147,6 @@ export default function GroupsPage() {
 		} catch (e) {
 			console.error(e)
 			message.error('Ошибка сети при сохранении выбора группы')
-			// rollback
 			setGroups(prev =>
 				prev.map(g =>
 					g.wa_group_id === waGroupId ? { ...g, is_selected: !next } : g
@@ -175,11 +158,8 @@ export default function GroupsPage() {
 	}
 
 	const selectAll = async (val: boolean) => {
-		// быстрое массовое действие на UI
 		const ids = groups.map(g => g.wa_group_id)
 		setGroups(prev => prev.map(g => ({ ...g, is_selected: val })))
-
-		// последовательно сохраняем на бэке (простое и надёжное)
 		for (const id of ids) {
 			// eslint-disable-next-line no-await-in-loop
 			await setSelected(id, val)
@@ -187,10 +167,7 @@ export default function GroupsPage() {
 	}
 
 	useEffect(() => {
-		if (!token) {
-			message.warning('Нет токена. Войдите в аккаунт.')
-			return
-		}
+		if (!token) return message.warning('Нет токена. Войдите в аккаунт.')
 		fetchMe()
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [token])
@@ -200,15 +177,31 @@ export default function GroupsPage() {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [userId])
 
+	const filtered = useMemo(() => {
+		const s = q.trim().toLowerCase()
+		if (!s) return groups
+		return groups.filter(g => (g.subject || '').toLowerCase().includes(s))
+	}, [groups, q])
+
+	const total = groups.length
+	const selectedCount = groups.filter(g => g.is_selected !== false).length
+
 	const columns: ColumnsType<GroupRow> = [
 		{
-			title: 'В рассылку',
-			key: 'is_selected',
-			width: 110,
+			title: 'Название группы',
+			dataIndex: 'subject',
+			key: 'subject',
+			render: (v: string | null) =>
+				v || <span style={{ opacity: 0.6 }}>без названия</span>,
+		},
+		{
+			title: '',
+			key: 'pick',
+			width: 90,
+			align: 'center',
 			render: (_: any, row: GroupRow) => {
-				const checked = row.is_selected !== false // null/undefined => считаем true
+				const checked = row.is_selected !== false
 				const busy = !!savingMap[row.wa_group_id]
-
 				return (
 					<Checkbox
 						checked={checked}
@@ -219,101 +212,118 @@ export default function GroupsPage() {
 			},
 		},
 		{
-			title: 'Название',
-			dataIndex: 'subject',
-			key: 'subject',
-			render: (v: string | null) =>
-				v || <span style={{ opacity: 0.6 }}>без названия</span>,
-		},
-		{
-			title: 'Group ID',
-			dataIndex: 'wa_group_id',
-			key: 'wa_group_id',
-			render: (v: string) => <code style={{ fontSize: 12 }}>{v}</code>,
-		},
-		{
-			title: 'Участники',
-			dataIndex: 'participants_count',
-			key: 'participants_count',
-			width: 110,
-			render: (v: number | null) => (typeof v === 'number' ? v : '—'),
-		},
-		{
 			title: 'Тип',
 			key: 'flags',
 			width: 220,
 			render: (_: any, row: GroupRow) => (
-				<Space>
+				<Space size={6}>
 					{row.is_announcement ? <Tag color='gold'>announce</Tag> : null}
 					{row.is_restricted ? <Tag color='red'>restricted</Tag> : null}
 				</Space>
 			),
 		},
 		{
-			title: 'Обновлено',
-			dataIndex: 'updated_at',
-			key: 'updated_at',
-			width: 190,
-			render: (v: string) => new Date(v).toLocaleString(),
+			title: 'Участники',
+			dataIndex: 'participants_count',
+			key: 'participants_count',
+			width: 120,
+			render: (v: number | null) => (typeof v === 'number' ? v : '—'),
 		},
 	]
 
 	return (
-		<div style={{ padding: 24 }}>
-			<h1>Группы WhatsApp</h1>
+		<div className={styles.page}>
+			<div className={styles.container}>
+				<h1 className={styles.title}>Ваши группы</h1>
 
-			<div style={{ marginBottom: 12 }}>
-				<div style={{ opacity: 0.75, marginBottom: 8 }}>
-					userId: <code>{userId || '—'}</code>
+				<div className={styles.searchLabel}>Найти группу</div>
+
+				<div className={styles.searchWrap}>
+					<Input
+						className={styles.searchInput}
+						value={q}
+						onChange={e => setQ(e.target.value)}
+						placeholder=''
+						allowClear
+					/>
+					<svg className={styles.searchIcon} viewBox='0 0 24 24' fill='none'>
+						<path
+							d='M10.5 18.5a8 8 0 1 1 0-16 8 8 0 0 1 0 16Z'
+							stroke='currentColor'
+							strokeWidth='2'
+						/>
+						<path
+							d='M16.5 16.5 21 21'
+							stroke='currentColor'
+							strokeWidth='2'
+							strokeLinecap='round'
+						/>
+					</svg>
 				</div>
 
-				<Space wrap>
-					<Button
-						onClick={() => userId && fetchGroups(userId)}
-						loading={loadingGroups}
-					>
-						Обновить таблицу
-					</Button>
+				{/* Панель действий (как в TG) */}
+				<div style={{ marginBottom: 20 }}>
+					<Space wrap>
+						<Button
+							type='primary'
+							onClick={syncGroups}
+							loading={syncing}
+							disabled={!userId}
+						>
+							Получить группы
+						</Button>
 
-					<Button
-						type='primary'
-						onClick={syncGroups}
-						loading={syncing}
-						disabled={!userId}
-					>
-						Получить группы
-					</Button>
+						<Button onClick={() => selectAll(true)} disabled={!groups.length}>
+							Выбрать все
+						</Button>
 
-					<Button disabled={!groups.length} onClick={() => selectAll(true)}>
-						Выбрать все
-					</Button>
+						<Button onClick={() => selectAll(false)} disabled={!groups.length}>
+							Снять все
+						</Button>
 
-					<Button disabled={!groups.length} onClick={() => selectAll(false)}>
-						Снять все
-					</Button>
+						<Button
+							onClick={() => userId && fetchGroups(userId)}
+							loading={loadingGroups}
+						>
+							Обновить таблицу
+						</Button>
 
-					<button
-						onClick={dash}
-						style={{
-							padding: '6px 12px',
-							borderRadius: 8,
-							border: '1px solid #ccc',
-							background: '#f5f5f5',
-							cursor: 'pointer',
-						}}
-					>
-					Telegram группы
-					</button>
-				</Space>
+						<Button onClick={() => router.push('/dashboard/telegram-groups')}>
+							Telegram группы
+						</Button>
+					</Space>
+				</div>
+
+				{/* Счётчики */}
+				<div className={styles.counters}>
+					<div className={styles.counterRow}>
+						<b>Всего групп:</b> {total}
+					</div>
+					<div className={styles.counterRow}>
+						<b>Выбрано групп:</b> {selectedCount}
+					</div>
+				</div>
+
+				{/* Таблица в "бежевом" контейнере */}
+				<div className={styles.panel}>
+					<div className={styles.table}>
+						<Table
+							rowKey='wa_group_id'
+							columns={columns}
+							dataSource={filtered}
+							loading={loadingMe || loadingGroups}
+							pagination={false}
+							locale={{ emptyText: 'Нет групп' }}
+						/>
+					</div>
+				</div>
+
+				<div className={styles.footer}>
+					<div className={styles.doneBtn}>
+						<Button onClick={() => window.history.back()}>Готово</Button>
+					</div>
+				</div>
 			</div>
-
-			<Table
-				rowKey='wa_group_id'
-				columns={columns}
-				dataSource={groups}
-				loading={loadingMe || loadingGroups}
-				pagination={{ pageSize: 10 }}
-			/>
 		</div>
 	)
 }

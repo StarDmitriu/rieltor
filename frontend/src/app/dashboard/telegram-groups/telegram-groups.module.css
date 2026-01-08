@@ -1,0 +1,188 @@
+.page {
+  min-height: 100vh;
+  padding: 48px 16px 80px;
+  background: #ffffff;
+  display: flex;
+  justify-content: center;
+}
+
+.container {
+  width: 100%;
+  max-width: 760px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.title {
+  margin: 0 0 22px;
+  font-size: 56px;
+  line-height: 1.05;
+  font-weight: 800;
+  color: #2f2f2f;
+  text-align: center;
+}
+
+.searchLabel {
+  margin: 6px 0 8px;
+  font-size: 14px;
+  color: #6b6b6b;
+  align-self: center;
+}
+
+.searchWrap {
+  width: 460px;
+  max-width: 100%;
+  position: relative;
+  margin-bottom: 26px;
+}
+
+.searchInput /*:global(.ant-input)*/ {
+  height: 46px;
+  border-radius: 10px;
+  background: #F7F5D3;
+  border: none;
+  padding: none;
+  box-shadow: none;
+}
+
+.searchInput:hover{
+  background: #F7F5D3;
+
+}
+
+.table :global(.ant-empty) {
+  display: flex;
+  flex-direction: column;
+  align-items: center;   /* горизонтально */
+  justify-content: center; /* вертикально */
+  min-height: 220px;     /* чтобы было где центрировать */
+}
+
+.table :global(.ant-empty-description) {
+  margin-top: 8px;
+  font-size: 16px;
+}
+
+
+.searchIcon {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 18px;
+  height: 18px;
+  opacity: 0.55;
+}
+
+.counters {
+  width: 100%;
+  max-width: 520px;
+  margin-bottom: 14px;
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+  color: #3d3d3d;
+  font-size: 14px;
+}
+
+.counterRow b {
+  font-weight: 700;
+}
+
+.panel {
+  width: 100%;
+  max-width: 520px;
+  background: #f6f3cc;
+  border: 1px solid #ece6a8;
+  border-radius: 44px;
+  padding: 50px 25px 35px 25px;
+  margin-top: 12px;
+}
+
+/* Антд Table превращаем в "список карточек" */
+.table :global(.ant-table) {
+  background: transparent;
+}
+
+.table :global(.ant-table-container) {
+  background: transparent;
+}
+
+.table :global(.ant-table-thead) {
+  display: none; /* убираем шапку, как на макете */
+}
+
+.table :global(.ant-table-tbody) {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 519px;
+}
+
+/* строка -> карточка */
+.table :global(.ant-table-tbody > tr) {
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  width: 100%;
+  /*grid-template-columns: 1fr 460px; *//* название + чекбокс справа */
+  align-items: center;
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #efecc0;
+  height: 46px;
+  padding: 0 10px 0 16px;
+}
+
+/* убираем “табличные” бордеры */
+.table :global(.ant-table-tbody > tr > td) {
+  border-bottom: none !important;
+  padding: 0 !important;
+  background: transparent !important;
+}
+
+/* скрываем лишние колонки (chat id, participants, updated) */
+.table :global(.ant-table-tbody > tr > td:nth-child(3)),
+.table :global(.ant-table-tbody > tr > td:nth-child(4)),
+.table :global(.ant-table-tbody > tr > td:nth-child(5)) {
+  display: none;
+}
+
+/* делаем “Название группы” серым, как в макете */
+.table :global(.ant-table-tbody > tr > td:nth-child(2)) {
+  color: #7a7a7a;
+  font-size: 14px;
+}
+
+/* чекбокс в виде маленького квадрата справа */
+.table :global(.ant-checkbox-inner) {
+  width: 18px;
+  height: 18px;
+  border-radius: 6px;
+  background: #f2dd6a;
+  border-color: #f2dd6a;
+}
+
+/* галка белая */
+.table :global(.ant-checkbox-checked .ant-checkbox-inner::after) {
+  border-color: #ffffff;
+}
+
+.footer {
+  width: 100%;
+  max-width: 520px;
+  margin-top: 26px;
+  display: flex;
+  justify-content: flex-start;
+}
+
+.doneBtn :global(.ant-btn) {
+  height: 44px;
+  border-radius: 22px;
+  padding: 0 22px;
+  border: 1px solid #8e8e8e;
+  background: transparent;
+  color: #2f2f2f;
+  font-weight: 600;
+}

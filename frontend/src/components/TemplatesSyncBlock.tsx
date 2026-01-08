@@ -1,6 +1,6 @@
 // frontend/src/components/TemplatesSyncBlock.tsx
 'use client'
-
+import './TemplatesSyncBlock.css'
 import { useState } from 'react'
 import { Button, message, Space } from 'antd'
 import { apiPost } from '@/lib/api'
@@ -27,20 +27,19 @@ export function TemplatesSyncBlock({ userId }: { userId: string }) {
 	}
 
 	return (
-		<div
-			style={{
-				border: '1px solid #eee',
-				borderRadius: 12,
-				padding: 16,
-				marginTop: 16,
-			}}
-		>
-			<h3 style={{ marginTop: 0 }}>Шаблоны</h3>
-			<Space>
-				<Button onClick={sync} loading={loading}>
-					Синхронизировать шаблоны
-				</Button>
-			</Space>
+		<div className='sinh'>
+			<h2 className='sinh-title'>Шаблоны</h2>
+			<p className='sinh-text'>
+				Синхронизируйте шаблоны перед началом рассылки
+			</p>
+			<div className="pattern-button">
+				<Space>
+					<Button onClick={sync} loading={loading}>
+						Синхронизировать шаблоны
+					</Button>
+				</Space>
+
+			</div>
 		</div>
 	)
 }

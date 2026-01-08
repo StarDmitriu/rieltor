@@ -18,27 +18,52 @@ function parseHHMM(hhmm: string) {
 }
 
 /** Если время попало вне окна — переносим на ближайшее разрешённое. */
+/** Поддерживает окна и "через полночь" (например 21:00–06:00). */
 function clampToWindow(dt: DateTime, fromHHMM: string, toHHMM: string) {
   const from = parseHHMM(fromHHMM);
   const to = parseHHMM(toHHMM);
 
-  const start = dt.set({
+  const startToday = dt.set({
     hour: from.h,
     minute: from.m,
     second: 0,
     millisecond: 0,
   });
-  const end = dt.set({
+
+  const endToday = dt.set({
     hour: to.h,
     minute: to.m,
     second: 0,
     millisecond: 0,
   });
 
-  if (dt < start) return start;
-  if (dt > end) return start.plus({ days: 1 });
-  return dt;
+  const crossesMidnight =
+    from.h > to.h || (from.h === to.h && from.m > to.m);
+
+  // обычное окно (например 08:00–17:00)
+  if (!crossesMidnight) {
+    if (dt < startToday) return startToday;
+    if (dt > endToday) return startToday.plus({ days: 1 });
+    return dt;
+  }
+
+  // окно через полночь (например 21:00–06:00)
+  // Разрешено: [21:00..24:00) ИЛИ [00:00..06:00]
+  // Если dt после полуночи (00:00..06:00) — конец окна "сегодня", а старт был "вчера".
+  if (dt >= startToday) {
+    // вечерняя часть (21:00..24:00)
+    return dt;
+  }
+
+  if (dt <= endToday) {
+    // утренняя часть (00:00..06:00)
+    return dt;
+  }
+
+  // иначе мы "днём" (между 06:00 и 21:00) — переносим на ближайшее 21:00
+  return startToday;
 }
+
 
 export type StartMultiOptions = {
   timeFrom?: string; // "08:00"
@@ -152,7 +177,9 @@ export class CampaignsService {
       };
     }
 
-    const tz = (user as any)?.timezone || 'UTC';
+    const tz =
+      (user as any)?.timezone || process.env.DEFAULT_TZ || 'Europe/Moscow';
+
 
     // настройки времени/задержек
     const time_from = opts.timeFrom ?? '08:00';
@@ -608,7 +635,8 @@ export class CampaignsService {
       return { success: false, message: 'claim_failed', error: claimErr };
     if (!claimed) return { success: true, message: 'not_claimed' };
 
-    const tz = c.timezone || 'UTC';
+    const tz = c.timezone || process.env.DEFAULT_TZ || 'Europe/Moscow';
+
     const time_from = c.time_from || '00:00';
     const time_to = c.time_to || '23:59';
 

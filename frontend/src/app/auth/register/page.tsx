@@ -1,18 +1,17 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 
-
-export default function RegisterPage() {
+function RegisterInner() {
 	const router = useRouter()
-  const params = useSearchParams()
+	const params = useSearchParams()
 
-	const initialPhone = params.get('phone') || ''
-	const ref = params.get('ref') || ''
+	const initialPhone = useMemo(() => params.get('phone') || '', [params])
+	const ref = useMemo(() => params.get('ref') || '', [params])
 
 	const [fullName, setFullName] = useState('')
-  const [phone, setPhone] = useState(initialPhone)
+	const [phone, setPhone] = useState(initialPhone)
 	const [gender, setGender] = useState('')
 	const [telegram, setTelegram] = useState('')
 	const [birthday, setBirthday] = useState('')
@@ -30,7 +29,7 @@ export default function RegisterPage() {
 
 		setLoading(true)
 		try {
-			// 1) отправляем код на телефон
+			// 1) отправляем код
 			const res = await fetch('http://localhost:3000/auth/send-code', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
@@ -45,20 +44,24 @@ export default function RegisterPage() {
 				return
 			}
 
-			// 2) сохраняем профиль во временное хранилище (sessionStorage)
+			// 2) сохраняем профиль
 			const profile = {
 				full_name: fullName.trim(),
 				gender: gender || null,
 				telegram: telegram || null,
-				birthday: birthday || null, // формат YYYY-MM-DD
+				birthday: birthday || null,
 			}
+
 			if (typeof window !== 'undefined') {
 				sessionStorage.setItem('registerProfile', JSON.stringify(profile))
 			}
 
-			// 3) переходим на страницу ввода кода в режиме register
-			router.push(`/auth/code?phone=${encodeURIComponent(phone)}&mode=register&ref=${encodeURIComponent(ref || '')}`)
-
+			// 3) идём на ввод кода + прокидываем ref
+			router.push(
+				`/auth/code?phone=${encodeURIComponent(
+					phone
+				)}&mode=register&ref=${encodeURIComponent(ref)}`
+			)
 		} catch (err) {
 			console.error(err)
 			alert('Ошибка сети, попробуйте ещё раз')
@@ -164,5 +167,13 @@ export default function RegisterPage() {
 				</button>
 			</div>
 		</div>
+	)
+}
+
+export default function RegisterPage() {
+	return (
+		<Suspense fallback={<div style={{ padding: 24 }}>Загрузка...</div>}>
+			<RegisterInner />
+		</Suspense>
 	)
 }

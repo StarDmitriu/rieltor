@@ -4,8 +4,13 @@ import { useEffect, useState } from 'react'
 import Cookies from 'js-cookie'
 import { Button, Table, message, Space, Checkbox } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
+import styles from './telegram-groups.module.css'
+import { Input } from 'antd' 
+import { useRouter } from 'next/navigation'
 
-const BACKEND_URL = 'http://localhost:3000'
+
+const BACKEND_URL =
+	process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000'
 
 type MeResponse =
 	| { success: true; user: { id: string } }
@@ -26,6 +31,9 @@ export default function TelegramGroupsPage() {
 	const [syncing, setSyncing] = useState(false)
 	const [savingMap, setSavingMap] = useState<Record<string, boolean>>({})
 	const [groups, setGroups] = useState<TgGroupRow[]>([])
+	const [q, setQ] = useState('')
+	const router = useRouter()
+
 
 	const token = Cookies.get('token') || ''
 
@@ -79,7 +87,10 @@ export default function TelegramGroupsPage() {
 			if (!data.success) {
 				if (data.message === 'telegram_not_connected') {
 					message.error('Telegram не подключён. Сначала подключите Telegram.')
-				} else {
+				} else if (data.message === 'telegram_timeout') {
+					message.error('Telegram временно не отвечает. Попробуйте ещё раз через 10–20 секунд.');
+					return;
+				}{
 					message.error(`Ошибка синка TG групп: ${data.message || 'unknown'}`)
 				}
 				return
@@ -158,7 +169,16 @@ export default function TelegramGroupsPage() {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [userId])
 
+
+
 	const columns: ColumnsType<TgGroupRow> = [
+		{
+			title: 'Название',
+			dataIndex: 'title',
+			key: 'title',
+			render: (v: string | null) =>
+				v || <span style={{ opacity: 0.6 }}>без названия</span>,
+		},
 		{
 			title: 'В рассылку',
 			key: 'is_selected',
@@ -168,19 +188,12 @@ export default function TelegramGroupsPage() {
 				const busy = !!savingMap[row.tg_chat_id]
 				return (
 					<Checkbox
-						checked={checked}
 						disabled={busy}
+						checked={checked}
 						onChange={e => setSelected(row.tg_chat_id, e.target.checked)}
 					/>
 				)
 			},
-		},
-		{
-			title: 'Название',
-			dataIndex: 'title',
-			key: 'title',
-			render: (v: string | null) =>
-				v || <span style={{ opacity: 0.6 }}>без названия</span>,
 		},
 		{
 			title: 'Chat ID',
@@ -204,49 +217,105 @@ export default function TelegramGroupsPage() {
 		},
 	]
 
-	return (
-		<div style={{ padding: 24 }}>
-			<h1>Группы Telegram</h1>
+	const total = groups.length
+	const selected = groups.filter(g => g.is_selected !== false).length
 
-			<div style={{ marginBottom: 12 }}>
-				<div style={{ opacity: 0.75, marginBottom: 8 }}>
-					userId: <code>{userId || '—'}</code>
+	const filtered = q.trim()
+		? groups.filter(g =>
+				(g.title || '').toLowerCase().includes(q.trim().toLowerCase())
+		  )
+		: groups
+
+	return (
+		<div className={styles.page}>
+			<div className={styles.container}>
+				<h1 className={styles.title}>Ваши группы</h1>
+
+				<div className={styles.searchLabel}>Найти группу</div>
+
+				<div className={styles.searchWrap}>
+					<Input
+						className={styles.searchInput}
+						value={q}
+						onChange={e => setQ(e.target.value)}
+						placeholder='Поиск групп'
+						allowClear
+					/>
+					<svg className={styles.searchIcon} viewBox='0 0 24 24' fill='none'>
+						<path
+							d='M10.5 18.5a8 8 0 1 1 0-16 8 8 0 0 1 0 16Z'
+							stroke='currentColor'
+							strokeWidth='2'
+						/>
+						<path
+							d='M16.5 16.5 21 21'
+							stroke='currentColor'
+							strokeWidth='2'
+							strokeLinecap='round'
+						/>
+					</svg>
 				</div>
 
-				<Space wrap>
-					<Button
-						onClick={() => userId && fetchGroups(userId)}
-						loading={loadingGroups}
-					>
-						Обновить таблицу
-					</Button>
+				{/* Панель действий */}
+				<div style={{ marginBottom: 20 }}>
+					<Space wrap>
+						<Button
+							type='primary'
+							onClick={syncGroups}
+							loading={syncing}
+							disabled={!userId}
+						>
+							Получить группы
+						</Button>
 
-					<Button
-						type='primary'
-						onClick={syncGroups}
-						loading={syncing}
-						disabled={!userId}
-					>
-						Получить группы
-					</Button>
+						<Button onClick={() => selectAll(true)} disabled={!groups.length}>
+							Выбрать все
+						</Button>
 
-					<Button disabled={!groups.length} onClick={() => selectAll(true)}>
-						Выбрать все
-					</Button>
+						<Button onClick={() => selectAll(false)} disabled={!groups.length}>
+							Снять все
+						</Button>
 
-					<Button disabled={!groups.length} onClick={() => selectAll(false)}>
-						Снять все
-					</Button>
-				</Space>
+						<Button
+							onClick={() => userId && fetchGroups(userId)}
+							loading={loadingGroups}
+						>
+							Обновить таблицу
+						</Button>
+					</Space>
+				</div>
+
+				{/* Счётчики */}
+				<div className={styles.counters}>
+					<div className={styles.counterRow}>
+						<b>Всего групп:</b> {groups.length}
+					</div>
+					<div className={styles.counterRow}>
+						<b>Выбрано групп:</b>{' '}
+						{groups.filter(g => g.is_selected !== false).length}
+					</div>
+				</div>
+
+				{/* Контейнер карточек (Table без шапки) */}
+				<div className={styles.panel}>
+					<div className={styles.table}>
+						<Table
+							rowKey='tg_chat_id'
+							columns={columns}
+							dataSource={filtered}
+							loading={loadingMe || loadingGroups}
+							pagination={false}
+							locale={{ emptyText: 'Нет групп' }}
+						/>
+					</div>
+				</div>
+
+				<div className={styles.footer}>
+					<div className={styles.doneBtn}>
+						<Button onClick={() => window.history.back()}>Готово</Button>
+					</div>
+				</div>
 			</div>
-
-			<Table
-				rowKey='tg_chat_id'
-				columns={columns}
-				dataSource={groups}
-				loading={loadingMe || loadingGroups}
-				pagination={{ pageSize: 10 }}
-			/>
 		</div>
 	)
 }

@@ -3,8 +3,10 @@
 import { useEffect, useState } from 'react'
 import Cookies from 'js-cookie'
 import { useRouter } from 'next/navigation'
+import './page.css'
 
-const backendUrl = 'http://localhost:3000'
+const backendUrl =
+	process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000'
 
 export default function SubscriptionPage() {
 	const router = useRouter()
@@ -12,10 +14,8 @@ export default function SubscriptionPage() {
 	const [data, setData] = useState<any>(null)
 	const [busy, setBusy] = useState(false)
 
-	
-
 	useEffect(() => {
-    const token = Cookies.get('token')
+		const token = Cookies.get('token')
 		if (!token) {
 			router.push('/auth/phone')
 			return
@@ -29,6 +29,8 @@ export default function SubscriptionPage() {
 					cache: 'no-store',
 				})
 				const json = await res.json()
+				console.log('subscriptions/me response:', json)
+				console.log('backendUrl:', backendUrl)
 				setData(json)
 			} catch (e) {
 				console.error(e)
@@ -41,7 +43,7 @@ export default function SubscriptionPage() {
 	}, [router])
 
 	const startTrial = async () => {
-    const token = Cookies.get('token')
+		const token = Cookies.get('token')
 		if (!token) return
 		setBusy(true)
 		try {
@@ -54,14 +56,14 @@ export default function SubscriptionPage() {
 				alert(json.message || 'Не удалось запустить тест')
 				return
 			}
+
 			alert('Пробный период активирован!')
-			// обновим
+
 			const me = await fetch(`${backendUrl}/subscriptions/me`, {
 				headers: {
 					Authorization: `Bearer ${token}`,
 					'Content-Type': 'application/json',
 				},
-
 				cache: 'no-store',
 			})
 			setData(await me.json())
@@ -75,6 +77,7 @@ export default function SubscriptionPage() {
 
 	if (loading) return <div style={{ padding: 24 }}>Загрузка...</div>
 
+	// ❗ если success=false — показываем ошибку
 	if (!data?.success) {
 		return (
 			<div style={{ padding: 24 }}>
@@ -85,68 +88,84 @@ export default function SubscriptionPage() {
 		)
 	}
 
+	// ✅ success=true — используем РЕАЛЬНЫЕ поля ответа
 	const sub = data.subscription || {}
-	const status = sub.status || 'none'
+	const status = data.status || sub.status || 'none'
+	const daysLeft = data.accessDaysLeft ?? 0
+	const endsAt = data.accessEndsAt ?? null
+	let rusStatus = ''
 
-	return (
-		<div style={{ padding: 24, maxWidth: 720 }}>
-			<h1>Подписка</h1>
+	const canStartTrial =
+		!data.isBlocked &&
+		status !== 'active' &&
+		status !== 'trial' &&
+		daysLeft === 0
 
-			<div
-				style={{
-					marginTop: 16,
-					padding: 16,
-					border: '1px solid #e0e0e0',
-					borderRadius: 12,
-				}}
-			>
-				<p>
-					<strong>Статус:</strong> {status}
+	if (status === 'active'){
+		rusStatus = 'Активна'
+	} else if (status === 'trial') {
+		rusStatus = 'Пробный период'
+	}
+		return (
+			<div className='subscription'>
+				<h1 className='subscription-title'>Моя подписка</h1>
+				<p className='subscription-text'>
+					Здесь вы можете продлить доступ, сменить тариф или отключить
+					автосписание
 				</p>
-				<p>
-					<strong>Дней осталось:</strong> {data.daysLeft ?? 0}
-				</p>
-				<p>
-					<strong>Действует до:</strong>{' '}
-					{data.endsAt ? new Date(data.endsAt).toLocaleString() : '—'}
-				</p>
+				<div className='subscription-cont'>
+					<div className='subscription-data'>
+						<strong>Текущий тариф</strong>
+						<p className='subscription-data-text'>{rusStatus}</p>
+					</div>
+					<div className='subscription-data'>
+						<strong>Осталось дней</strong>
+						<p className='subscription-data-text'>{daysLeft}</p>
+					</div>
+					<div className='subscription-data'>
+						<strong>Действует до:</strong>{' '}
+						<p className='subscription-data-text'>
+							{endsAt ? new Date(endsAt).toLocaleString() : '—'}
+						</p>
+					</div>
 
-				{data.isBlocked ? (
-					<p style={{ color: 'red' }}>
-						<strong>Аккаунт заблокирован администратором</strong>
-					</p>
-				) : null}
-
-				<div style={{ marginTop: 12 }}>
-					{status !== 'active' &&
-					(status !== 'trial' || (data.daysLeft ?? 0) === 0) ? (
-						<button
-							onClick={startTrial}
-							disabled={busy}
-							style={{ padding: 10 }}
-						>
-							{busy ? 'Запускаем...' : 'Начать пробный период (3 дня)'}
-						</button>
+					{data.isBlocked ? (
+						<p style={{ color: 'red' }}>
+							<strong>Аккаунт заблокирован администратором</strong>
+						</p>
 					) : null}
 
-					{/* Оплату подключим позже — пока кнопка-заглушка */}
-					{!data.isBlocked ? (
+					<div style={{ marginTop: 12 }}>
+						{canStartTrial ? (
+							<button
+								onClick={startTrial}
+								disabled={busy}
+								style={{ padding: 10 }}
+							>
+								{busy ? 'Запускаем...' : 'Начать пробный период (3 дня)'}
+							</button>
+						) : null}
+
+						{!data.isBlocked ? (
+							<button
+								onClick={() => alert('Оплата будет подключена через Продамус')}
+								style={{ padding: 10, marginLeft: 8 }}
+							>
+								Оплатить 2000₽ / месяц
+							</button>
+						) : null}
+
 						<button
-							onClick={() => alert('Оплата будет подключена через Продамус')}
+							onClick={() => router.push('/cabinet')}
 							style={{ padding: 10, marginLeft: 8 }}
 						>
-							Оплатить 2000₽ / месяц
+							Назад в кабинет
 						</button>
-					) : null}
-
-					<button
-						onClick={() => router.push('/cabinet')}
-						style={{ padding: 10, marginLeft: 8 }}
-					>
-						Назад в кабинет
-					</button>
+					</div>
 				</div>
+				<p className='subscription-footer'>
+					После окончания подписки доступ к сервису будет приостановлен
+				</p>
 			</div>
-		</div>
-	)
+		)
 }

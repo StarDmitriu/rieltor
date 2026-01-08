@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState } from 'react'
 import Cookies from 'js-cookie'
 import { useRouter } from 'next/navigation'
 
-const backendUrl = 'http://localhost:3000'
+const backendUrl =
+	process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000'
 
 type Sub = {
 	user_id: string

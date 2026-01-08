@@ -1,0 +1,50 @@
+.newsletters{
+  max-width: 750px;
+  width: 100%;
+  margin: 0 auto;
+  margin-top: 70px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.newsletters-button{
+  width: 400px;
+  height: 151px;
+  background-color: #F9EE91;
+  display: flex;
+  justify-content: center;
+  text-align: center;
+  align-items: center;
+  border-radius: 37px;
+  margin-top: 40px;
+  button{
+    font-size: 18px;
+    font-weight: 800;
+    padding: 20px 25px;
+    border: 1px solid #333333;
+    background: transparent;
+    border-radius: 25px;
+    cursor: pointer;
+    transition: 400ms;
+    color: #333;
+  }
+  button:hover{
+    background: #333 !important;
+    color: #fff !important;
+    border: none !important;
+  }
+}
+
+.newsletters-title{
+  font-size: 60px;
+  font-weight: 700;
+  margin: 0;
+  margin-bottom: 20px;
+}
+
+.newsletters-text{
+  font-size: 30px;
+  text-align: center;
+  font-weight: 700;
+}

@@ -1,0 +1,139 @@
+p{
+  margin: 0;
+}
+
+.title{
+  font-size: 60px;
+  text-align: center;
+  margin: 100px 0 50px;
+}
+
+.profile{
+  max-width: 520px;
+  margin: 0 auto;
+}
+
+.profile-text{
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  strong{ font-weight: 500; }
+  p{
+    background-color: #F7F5D3;
+    font-size: 18px;
+    padding: 10px;
+    border-radius: 10px;
+    font-weight: 600;
+    margin-bottom: 15px;
+  }
+}
+
+.profile-btns{
+  margin-top: 15px;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  button{
+    max-width: 210px;
+    width: 100%;
+  }
+}
+
+.groups{
+  margin: 0 auto;
+  margin-top: 100px;
+  max-width: 504px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.groups-title{
+  font-size: 30px;
+  font-weight: 700;
+  max-width: 504px;
+  text-align: center;
+  margin: 0;
+  margin-bottom: 40px;
+}
+
+.groups-button{
+  background: #F7F5D3;
+  width: 400px;
+  height: 151px;
+  display: flex;
+  justify-content: center;
+  text-align: center;
+  align-items: center;
+  border-radius: 37px;
+}
+
+.pattern{
+  max-width: 600px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.pattern-title{
+  font-size: 60px;
+  text-align: center;
+  margin: 70px 0 20px;
+  font-weight: 700;
+}
+
+.pattern-text{
+  font-size: 30px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.pattern-button{
+  width: 400px;
+  height: 151px;
+  background-color: #F9EE91;
+  display: flex;
+  justify-content: center;
+  text-align: center;
+  align-items: center;
+  border-radius: 37px;
+  margin-top: 50px;
+}
+
+.link{
+  max-width: 640px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 70px;
+}
+
+.link-title{
+  font-size: 60px;
+  text-align: center;
+  margin-top: 0;
+  margin-bottom: 20px;
+  font-weight: 700;
+}
+
+.link-text{
+  font-size: 30px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.link-input{
+  cursor: pointer;
+  max-width: 570px;
+  width: 100%;
+  text-align: center;
+  border: none;
+  padding: 15px;
+  font-size: 20px;
+  font-weight: 600;
+  background-color: #F9EE91;
+  border-radius: 37px;
+  margin-top: 20px;
+}

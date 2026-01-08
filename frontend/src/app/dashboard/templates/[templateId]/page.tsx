@@ -22,7 +22,8 @@ import { useParams, useRouter } from 'next/navigation'
 import { apiGet, apiPost } from '@/lib/api'
 import type { ColumnsType } from 'antd/es/table'
 
-const BACKEND_URL = 'http://localhost:3000'
+const BACKEND_URL =
+	process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000'
 
 type TemplateRow = {
 	id: string

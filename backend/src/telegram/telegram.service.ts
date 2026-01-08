@@ -168,8 +168,10 @@ export class TelegramService {
   private async connectFromSavedSession(userId: string, sessionStr: string) {
     const session = new StringSession(sessionStr);
     const client = new TelegramClient(session, this.apiId(), this.apiHash(), {
-      connectionRetries: 2,
+      connectionRetries: 5,
+      retryDelay: 1000,
     });
+
 
     await client.connect(); // не запускает логин, просто connect
     // проверим что авторизован
@@ -384,11 +386,28 @@ export class TelegramService {
 
   // ---------- sync groups ----------
   async syncGroups(userId: string) {
-    const client = await this.getConnectedClient(userId);
-    if (!client) return { success: false, message: 'telegram_not_connected' };
+     const client = await this.getConnectedClient(userId);
+     if (!client) return { success: false, message: 'telegram_not_connected' };
 
-    // забираем диалоги и оставляем только группы/супергруппы
-    const dialogs = await client.getDialogs({});
+     let dialogs;
+     try {
+       dialogs = await client.getDialogs({});
+     } catch (e: any) {
+       const msg = String(e?.message ?? e);
+
+       // TIMEOUT у gramjs/updates — частая штука, не делаем 500
+       if (msg.includes('TIMEOUT')) {
+         this.logger.warn(`TG getDialogs TIMEOUT: ${msg}`);
+         return { success: false, message: 'telegram_timeout', error: msg };
+       }
+
+       this.logger.error(`TG getDialogs failed: ${msg}`);
+       return {
+         success: false,
+         message: 'telegram_get_dialogs_failed',
+         error: msg,
+       };
+     }
     const nowIso = new Date().toISOString();
 
     const rows: any[] = [];

@@ -1,17 +1,15 @@
 'use client'
 
+import { Suspense, useState } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { useState } from 'react'
 import Cookies from 'js-cookie'
 
-export default function CodePage() {
+function CodeInner() {
 	const params = useSearchParams()
 	const router = useRouter()
 
-	const phone = params.get('phone') || '' // ✅ FIX
+	const phone = params.get('phone') || ''
 	const mode = params.get('mode') || 'login' // login | register
-	const ref = params.get('ref') || ''
-
 
 	const [code, setCode] = useState('')
 	const [loading, setLoading] = useState(false)
@@ -26,7 +24,6 @@ export default function CodePage() {
 		setLoading(true)
 		try {
 			let body: any = { phone, code }
-			if (ref) body.ref = ref
 
 			if (mode === 'register' && typeof window !== 'undefined') {
 				const raw = sessionStorage.getItem('registerProfile')
@@ -142,5 +139,13 @@ export default function CodePage() {
 				</button>
 			</div>
 		</div>
+	)
+}
+
+export default function CodePage() {
+	return (
+		<Suspense fallback={<div style={{ padding: 24 }}>Загрузка...</div>}>
+			<CodeInner />
+		</Suspense>
 	)
 }

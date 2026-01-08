@@ -1,0 +1,23 @@
+body, html{
+  margin: 0;
+  padding: 0;
+  color: #333;
+}
+
+
+button{
+  font-size: 18px;
+  font-weight: 800;
+  padding: 15px 25px;
+  border: 1px solid #333333;
+  background: transparent;
+  border-radius: 25px;
+  cursor: pointer;
+  transition: 400ms;
+  color: #333;
+}
+
+button:hover{
+  background: #333;
+  color: #Fff;
+}

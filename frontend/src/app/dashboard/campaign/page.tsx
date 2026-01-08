@@ -1,6 +1,7 @@
+//frontend/src/app/dashboard/campaign/page.tsx
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Button, message, Space, Table, Tag, Typography, Divider } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
@@ -54,7 +55,7 @@ function StatusTag({ done }: { done: boolean }) {
 	return done ? <Tag color='green'>done</Tag> : <Tag color='blue'>running</Tag>
 }
 
-export default function CampaignPage() {
+function CampaignInner() {
 	const router = useRouter()
 	const sp = useSearchParams()
 
@@ -294,5 +295,13 @@ export default function CampaignPage() {
 				</div>
 			) : null}
 		</div>
+	)
+}
+
+export default function CampaignPage() {
+	return (
+		<Suspense fallback={<div style={{ padding: 24 }}>Загрузка...</div>}>
+			<CampaignInner />
+		</Suspense>
 	)
 }

@@ -3,6 +3,9 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
+const backendUrl =
+	process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000'
+
 export default function LoginPage() {
 	const [phone, setPhone] = useState('')
 	const [loading, setLoading] = useState(false)
@@ -16,7 +19,7 @@ export default function LoginPage() {
 
 		setLoading(true)
 		try {
-			const res = await fetch('http://localhost:3000/auth/send-code', {
+			const res = await fetch(`${backendUrl}/auth/send-code`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ phone }),

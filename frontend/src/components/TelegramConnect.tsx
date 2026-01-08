@@ -1,4 +1,5 @@
 'use client'
+import './TelegramConnect.css'
 //frontend/src/components/TelegramConnect.tsx
 import { useEffect, useRef, useState } from 'react'
 
@@ -16,7 +17,8 @@ type StatusResp = {
 }
 
 export function TelegramConnect({ userId }: { userId: string }) {
-	const backendUrl = 'http://localhost:3000'
+	const backendUrl =
+		process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000'
 
 	const [status, setStatus] = useState<TgStatus>('not_connected')
 	const [code, setCode] = useState('')
@@ -25,6 +27,7 @@ export function TelegramConnect({ userId }: { userId: string }) {
 	const [loading, setLoading] = useState(false)
 
 	const pollRef = useRef<number | null>(null)
+	let rusStatus = ''
 
 	const stopPolling = () => {
 		if (pollRef.current) {
@@ -170,139 +173,141 @@ export function TelegramConnect({ userId }: { userId: string }) {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [userId])
 
-	return (
-		<div
-			style={{
-				border: '1px solid #eee',
-				borderRadius: 12,
-				padding: 16,
-				marginTop: 16,
-			}}
-		>
-			<h2 style={{ marginTop: 0 }}>Telegram</h2>
+	if (status === 'connected') {
+		rusStatus = 'Подключено'
+	} else if (status === 'not_connected') {
+		rusStatus = 'Не подключено'
+	} else if (status === 'error') {
+		rusStatus = 'Ошибка подключения'
+	} 
 
-			<div style={{ marginBottom: 8 }}>
-				<strong>Статус:</strong> {status}
-			</div>
 
-			{errorText ? (
-				<div style={{ color: 'red', marginBottom: 10, fontSize: 13 }}>
-					{errorText}
+		return (
+			<div className='telegram'>
+				<h2 className='telegram-title'>Telegram</h2>
+
+				<div style={{ marginBottom: 8 }}>
+					<strong>Статус:</strong> {rusStatus}
 				</div>
-			) : null}
 
-			<div style={{ background: '#F7E28C', borderRadius: 12, padding: 14 }}>
-				{status === 'connected' ? (
-					<div
-						style={{
-							display: 'flex',
-							justifyContent: 'space-between',
-							gap: 12,
-							alignItems: 'center',
-						}}
-					>
-						<div>
-							<strong>Telegram подключён ✅</strong>
-						</div>
-						<button
-							onClick={restart}
-							disabled={loading}
-							style={{ padding: '8px 12px' }}
-						>
-							Отключить
-						</button>
+				{errorText ? (
+					<div style={{ color: 'red', marginBottom: 10, fontSize: 13 }}>
+						{errorText}
 					</div>
-				) : status === 'awaiting_code' ? (
-					<div
-						style={{
-							display: 'flex',
-							gap: 10,
-							alignItems: 'center',
-							justifyContent: 'center',
-							flexWrap: 'wrap',
-						}}
-					>
+				) : null}
+
+				<div className='telegram-cont'>
+					{status === 'connected' ? (
 						<div
-							style={{ width: '100%', textAlign: 'center', marginBottom: 6 }}
+							style={{
+								display: 'flex',
+								justifyContent: 'space-between',
+								gap: 12,
+								alignItems: 'center',
+							}}
 						>
-							Введите код из Telegram/SMS:
+							<div>
+								<strong>Telegram подключён ✅</strong>
+							</div>
+							<button
+								onClick={restart}
+								disabled={loading}
+								style={{ padding: '8px 12px' }}
+							>
+								Отключить
+							</button>
 						</div>
-						<input
-							value={code}
-							onChange={e => setCode(e.target.value)}
-							placeholder='12345'
-							style={{ padding: '8px 10px', minWidth: 220 }}
-						/>
-						<button
-							onClick={confirmCode}
-							disabled={loading || code.trim().length < 3}
-							style={{ padding: '8px 12px' }}
-						>
-							Подтвердить
-						</button>
-
-						<button
-							onClick={restart}
-							disabled={loading}
-							style={{ padding: '8px 12px' }}
-							title='Сбросить текущий код и запросить заново'
-						>
-							Отправить код ещё раз
-						</button>
-					</div>
-				) : status === 'awaiting_password' ? (
-					<div
-						style={{
-							display: 'flex',
-							gap: 10,
-							alignItems: 'center',
-							justifyContent: 'center',
-							flexWrap: 'wrap',
-						}}
-					>
+					) : status === 'awaiting_code' ? (
 						<div
-							style={{ width: '100%', textAlign: 'center', marginBottom: 6 }}
+							style={{
+								display: 'flex',
+								gap: 10,
+								alignItems: 'center',
+								justifyContent: 'center',
+								flexWrap: 'wrap',
+							}}
 						>
-							Нужен пароль 2FA:
-						</div>
-						<input
-							type='password'
-							value={password}
-							onChange={e => setPassword(e.target.value)}
-							placeholder='пароль 2FA'
-							style={{ padding: '8px 10px', minWidth: 260 }}
-						/>
-						<button
-							onClick={confirmPassword}
-							disabled={loading || password.trim().length < 2}
-							style={{ padding: '8px 12px' }}
-						>
-							Подтвердить
-						</button>
+							<div
+								style={{ width: '100%', textAlign: 'center', marginBottom: 6 }}
+							>
+								Введите код из Telegram/SMS:
+							</div>
+							<input
+								value={code}
+								onChange={e => setCode(e.target.value)}
+								placeholder='12345'
+								className='telegram-input-code'
+							/>
+							<button
+								onClick={confirmCode}
+								disabled={loading || code.trim().length < 3}
+								style={{ padding: '8px 12px' }}
+							>
+								Подтвердить
+							</button>
 
-						<button
-							onClick={restart}
-							disabled={loading}
-							style={{ padding: '8px 12px' }}
-						>
-							Начать заново
-						</button>
-					</div>
-				) : (
-					<div style={{ textAlign: 'center' }}>
-						<button
-							onClick={startConnect}
-							disabled={loading}
-							style={{ padding: '10px 16px' }}
-						>
-							{loading ? 'Запуск…' : 'Подключить Telegram'}
-						</button>
-						<div style={{ marginTop: 8, fontSize: 12, opacity: 0.85 }}>
-							Код придёт в Telegram/SMS на номер из <code>users.phone</code>
+							<button
+								onClick={restart}
+								disabled={loading}
+								style={{ padding: '8px 12px' }}
+								title='Сбросить текущий код и запросить заново'
+							>
+								Отправить код ещё раз
+							</button>
 						</div>
-					</div>
-				)}
+					) : status === 'awaiting_password' ? (
+						<div
+							style={{
+								display: 'flex',
+								gap: 10,
+								alignItems: 'center',
+								justifyContent: 'center',
+								flexWrap: 'wrap',
+							}}
+						>
+							<div
+								style={{ width: '100%', textAlign: 'center', marginBottom: 6 }}
+							>
+								Нужен пароль 2FA:
+							</div>
+							<input
+								type='password'
+								value={password}
+								onChange={e => setPassword(e.target.value)}
+								placeholder='пароль 2FA'
+								className='telegram-input-2fa'
+							/>
+							<button
+								onClick={confirmPassword}
+								disabled={loading || password.trim().length < 2}
+								style={{ padding: '8px 12px' }}
+							>
+								Подтвердить
+							</button>
+
+							<button
+								onClick={restart}
+								disabled={loading}
+								style={{ padding: '8px 12px' }}
+							>
+								Начать заново
+							</button>
+						</div>
+					) : (
+						<div style={{ textAlign: 'center' }}>
+							<button
+								onClick={startConnect}
+								disabled={loading}
+								style={{ padding: '10px 16px' }}
+							>
+								{loading ? 'Запуск…' : 'Подключить Telegram'}
+							</button>
+							<div style={{ marginTop: 8, fontSize: 12, opacity: 0.85 }}>
+								Код придёт в Telegram на ваш номер телефона
+							</div>
+						</div>
+					)}
+				</div>
 			</div>
-		</div>
-	)
+		)
 }

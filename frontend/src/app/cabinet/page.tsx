@@ -1,6 +1,6 @@
 // frontend/src/app/cabinet/page.tsx
 'use client'
-
+import './page.css'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Cookies from 'js-cookie'
@@ -10,6 +10,7 @@ import { TemplatesSyncBlock } from '@/components/TemplatesSyncBlock'
 import { CampaignBlock } from '@/components/CampaignBlock'
 import { TelegramConnect } from '@/components/TelegramConnect'
 import { apiGet } from '@/lib/api'
+
 
 interface User {
 	id: string
@@ -27,7 +28,8 @@ export default function CabinetPage() {
 	const [user, setUser] = useState<User | null>(null)
 	const [loading, setLoading] = useState(true)
 
-	const backendUrl = 'http://localhost:3000'
+	const backendUrl =
+		process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000'
 
 	useEffect(() => {
 		const token = Cookies.get('token')
@@ -84,8 +86,8 @@ export default function CabinetPage() {
 	}
 
 	return (
-		<div style={{ padding: 24 }}>
-			<h1>Личный кабинет</h1>
+		<div>
+			<h1 className='title'>Личный кабинет</h1>
 
 			<button
 				onClick={logout}
@@ -93,106 +95,69 @@ export default function CabinetPage() {
 					position: 'absolute',
 					top: 16,
 					right: 16,
-					padding: '6px 12px',
-					borderRadius: 8,
-					border: '1px solid #ccc',
-					background: '#f5f5f5',
-					cursor: 'pointer',
 				}}
 			>
 				Выйти
 			</button>
 
-			<div
-				style={{
-					marginTop: 16,
-					padding: 16,
-					borderRadius: 12,
-					border: '1px solid #e0e0e0',
-					maxWidth: 560,
-				}}
-			>
-				<h2>Профиль</h2>
-				<p>
-					<strong>Имя:</strong> {user.full_name || 'Не указано'}
-				</p>
-				<p>
-					<strong>Телефон:</strong> {user.phone}
-				</p>
-				<p>
-					<strong>Пол:</strong>{' '}
-					{user.gender === 'm'
-						? 'Мужской'
-						: user.gender === 'f'
-						? 'Женский'
-						: 'Не указан'}
-				</p>
-				<p>
-					<strong>Telegram:</strong> {user.telegram || 'Не указан'}
-				</p>
-				<p>
-					<strong>Дата рождения:</strong>{' '}
-					{user.birthday ? user.birthday : 'Не указана'}
-				</p>
+			<div className='profile'>
+				<div className='profile-text'>
+					<strong>Ваше имя и фамилия</strong>
+					<p>{user.full_name || 'Не указано'}</p>
+				</div>
+				<div className='profile-text'>
+					<strong>Ваш номер</strong>
+					<p>{user.phone}</p>
+				</div>
+				<div className='profile-text'>
+					<strong>Пол</strong>{' '}
+					<p>
+						{user.gender === 'm'
+							? 'Мужской'
+							: user.gender === 'f'
+							? 'Женский'
+							: 'Не указан'}
+					</p>
+				</div>
+				<div className='profile-text'>
+					<strong>Ваш ник в телеграм</strong>
+					<p>{user.telegram || 'Не указан'}</p>
+				</div>
+				<div className='profile-text'>
+					<strong>Ваша дата рождения</strong>{' '}
+					<p>{user.birthday ? user.birthday : 'Не указана'}</p>
+				</div>
+				<div className='profile-btns'>
+					<button onClick={goSubscription}>Ваша подписка</button>
+				</div>
+			</div>
 
-				<button
-					onClick={dash}
-					style={{
-						padding: '6px 12px',
-						borderRadius: 8,
-						border: '1px solid #ccc',
-						background: '#f5f5f5',
-						cursor: 'pointer',
-					}}
-				>
-					Группы
-				</button>
+			<div className='groups'>
+				<h2 className='groups-title'>
+					Выберите группы, в которые отправится сообщение
+				</h2>
+				<div className='groups-button'>
+					<button onClick={dash}>Выбрать группы для отправки</button>
+				</div>
+			</div>
 
-				<button
-					onClick={goTemplates}
-					style={{
-						marginLeft: 8,
-						padding: '6px 12px',
-						borderRadius: 8,
-						border: '1px solid #ccc',
-						background: '#f5f5f5',
-						cursor: 'pointer',
-					}}
-				>
-					Шаблоны
-				</button>
-
-				<button
-					onClick={goSubscription}
-					style={{
-						marginLeft: 8,
-						padding: '6px 12px',
-						borderRadius: 8,
-						border: '1px solid #ccc',
-						background: '#f5f5f5',
-						cursor: 'pointer',
-					}}
-				>
-					Подписка
-				</button>
+			<div className='pattern'>
+				<h2 className='pattern-title'>Создание рассылки</h2>
+				<p className='pattern-text'>
+					Выберите готовый шаблон сообщения или создайте новый
+				</p>
+				<div className='pattern-button'>
+					<button onClick={goTemplates}>Шаблоны</button>
+				</div>
 			</div>
 
 			{/* ✅ Реферальная ссылка */}
-			<div
-				style={{
-					marginTop: 16,
-					padding: 16,
-					borderRadius: 12,
-					border: '1px solid #e0e0e0',
-					maxWidth: 560,
-				}}
-			>
-				<h2>Реферальная ссылка</h2>
+			<div className='link'>
+				<h2 className='link-title'>Реферальная ссылка</h2>
 
 				{!user.referral_code ? (
-					<p style={{ marginTop: 8 }}>
-						Реферальный код ещё не создан. (Если аккаунт старый — нужно один раз
-						заполнить referral_code в БД.)
+					<p className='link-text'>
+						Реферальный код ещё не создан. 
 					</p>
 				) : (
 					(() => {
@@ -207,26 +172,12 @@ export default function CabinetPage() {
 
 						return (
 							<>
-								<p style={{ marginTop: 8 }}>
+								<p className='link-text'>
 									Отправь другу эту ссылку. Если он оплатит тариф — тебе
 									начислим +7 дней.
 								</p>
 
 								<input
-									value={link}
-									readOnly
-									style={{ width: '100%', padding: 10, marginTop: 8 }}
-								/>
-
-								<button
-									style={{
-										marginTop: 10,
-										padding: '6px 12px',
-										borderRadius: 8,
-										border: '1px solid #ccc',
-										background: '#f5f5f5',
-										cursor: 'pointer',
-									}}
 									onClick={async () => {
 										try {
 											await navigator.clipboard.writeText(link)
@@ -235,9 +186,10 @@ export default function CabinetPage() {
 											alert('Не удалось скопировать')
 										}
 									}}
-								>
-									Скопировать
-								</button>
+									className='link-input'
+									value={link}
+									readOnly
+								/>
 							</>
 						)
 					})()
@@ -245,16 +197,16 @@ export default function CabinetPage() {
 			</div>
 
 			{/* ✅ таблица */}
-			<SheetsBlock
+			{/*<SheetsBlock
 				userId={user.id}
 				gsheetUrl={user.gsheet_url}
 				onCreated={url => setUser(u => (u ? { ...u, gsheet_url: url } : u))}
-			/>
+			/>*/}
 
 			<TelegramConnect userId={user.id} />
 
 			{/* ✅ синк шаблонов */}
-			<TemplatesSyncBlock userId={user.id} />
+			{/*<TemplatesSyncBlock userId={user.id} />*/}
 
 			{/* ✅ рассылка + переход на прогресс */}
 			<CampaignBlock />

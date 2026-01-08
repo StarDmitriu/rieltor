@@ -21,7 +21,8 @@ import { UploadOutlined } from '@ant-design/icons'
 import { useRouter } from 'next/navigation'
 import { apiPost } from '@/lib/api'
 
-const BACKEND_URL = 'http://localhost:3000'
+const BACKEND_URL =
+	process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000'
 
 type UiGroupRow = {
 	jid: string

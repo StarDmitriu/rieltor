@@ -23,7 +23,7 @@ interface StatusResponse {
 
 export function WhatsappConnectBlock({ userId }: { userId: string }) {
 	const backendUrl =
-		process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000'
+		process.env.NEXT_PUBLIC_BACKEND_URL || '/api'
 
 	const [status, setStatus] = useState<WhatsappStatus>('not_connected')
 	const [qr, setQr] = useState<string | null>(null)

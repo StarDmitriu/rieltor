@@ -21,7 +21,7 @@ type TemplateRow = {
 }
 
 const BACKEND_URL =
-	process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000'
+	process.env.NEXT_PUBLIC_BACKEND_URL || '/api'
 
 export default function TemplatesPage() {
 	const router = useRouter()

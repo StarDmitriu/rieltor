@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 const backendUrl =
-	process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000'
+	process.env.NEXT_PUBLIC_BACKEND_URL || '/api'
 
 export default function LoginPage() {
 	const [phone, setPhone] = useState('')

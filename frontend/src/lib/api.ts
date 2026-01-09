@@ -1,7 +1,7 @@
 import Cookies from 'js-cookie'
 //lib/api.ts
 const BACKEND_URL =
-	process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000'
+	process.env.NEXT_PUBLIC_BACKEND_URL || '/api'
 
 export async function apiPost(path: string, body?: any) {
 	const token = Cookies.get('token')

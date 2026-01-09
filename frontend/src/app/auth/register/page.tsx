@@ -30,7 +30,7 @@ function RegisterInner() {
 		setLoading(true)
 		try {
 			// 1) отправляем код
-			const res = await fetch('http://localhost:3000/auth/send-code', {
+			const res = await fetch('/api/auth/send-code', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ phone }),

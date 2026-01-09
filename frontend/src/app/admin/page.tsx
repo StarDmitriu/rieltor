@@ -5,7 +5,7 @@ import Cookies from 'js-cookie'
 import { useRouter } from 'next/navigation'
 
 const backendUrl =
-	process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000'
+	process.env.NEXT_PUBLIC_BACKEND_URL || '/api'
 
 type Sub = {
 	user_id: string

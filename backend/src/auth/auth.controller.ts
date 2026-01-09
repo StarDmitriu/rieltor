@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Headers, Post } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Post, HttpCode } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import * as jwt from 'jsonwebtoken';
 import { requireEnv } from '../config/env';
@@ -8,11 +8,13 @@ export class AuthController {
   constructor(private auth: AuthService) {}
 
   @Post('send-code')
+  @HttpCode(200)
   sendCode(@Body('phone') phone: string) {
     return this.auth.sendCode(phone);
   }
 
   @Post('verify-code')
+  @HttpCode(200)
   verify(@Body() body: any) {
     const { phone, code, full_name, gender, telegram, birthday, ref } = body;
 

@@ -111,13 +111,13 @@ export default function CampaignsHomePage() {
 		() => ({
 			timeFrom,
 			timeTo,
-			betweenGroupsSecMin: 100,
-			betweenGroupsSecMax: 100,
-			betweenTemplatesMinMin: 2,
-			betweenTemplatesMinMax: 2,
+			betweenGroupsSecMin: 10,
+			betweenGroupsSecMax: 10,
+			betweenTemplatesMinMin: 1,
+			betweenTemplatesMinMax: 1,
 			repeatEnabled: true,
-			repeatMinMin: 10,
-			repeatMinMax: 10,
+			repeatMinMin: 1,
+			repeatMinMax: 1,
 		}),
 		[timeFrom, timeTo]
 	)

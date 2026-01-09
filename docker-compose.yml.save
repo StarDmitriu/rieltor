@@ -18,11 +18,7 @@ services:
       PORT: 3000
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      TG_API_ID: "38841476"
-      TG_API_HASH: "f7d028dd897d7c54ed245b7a959bb68c"
-      CAMPAIGN_REPEAT_ENABLED: "true"
-      DEFAULT_TZ: Europe/Moscow
-      # REDIS_URL: redis://redis:6379
+      REDIS_URL: redis://redis:6379
 
 
       SUPABASE_URL: ${SUPABASE_URL}
@@ -35,8 +31,6 @@ services:
   frontend:
     build:
       context: ./frontend
-      args:
-        NEXT_PUBLIC_BACKEND_URL: /api
     container_name: chatrassylka_frontend
     depends_on:
       - backend

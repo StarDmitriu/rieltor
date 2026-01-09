@@ -10,8 +10,10 @@ export class QueueService {
 
   constructor() {
     this.connectionOptions = {
-      host: process.env.REDIS_HOST || '127.0.0.1',
-      port: Number(process.env.REDIS_PORT || 6379),
+      	host: process.env.REDIS_URL ? undefined : (process.env.REDIS_HOST || "redis"),
+	port: process.env.REDIS_URL ? undefined : Number(process.env.REDIS_PORT || 6379),
+	...(process.env.REDIS_URL ? { url: process.env.REDIS_URL } : {}),
+
 
       // ❗ критично для BullMQ (исправляет ошибку maxRetriesPerRequest)
       maxRetriesPerRequest: null,

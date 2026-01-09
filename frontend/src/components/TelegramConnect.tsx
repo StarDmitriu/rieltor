@@ -18,7 +18,7 @@ type StatusResp = {
 
 export function TelegramConnect({ userId }: { userId: string }) {
 	const backendUrl =
-		process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000'
+		process.env.NEXT_PUBLIC_BACKEND_URL || '/api'
 
 	const [status, setStatus] = useState<TgStatus>('not_connected')
 	const [code, setCode] = useState('')

@@ -22,7 +22,7 @@ import { useRouter } from 'next/navigation'
 import { apiPost } from '@/lib/api'
 
 const BACKEND_URL =
-	process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000'
+	process.env.NEXT_PUBLIC_BACKEND_URL || '/api'
 
 type UiGroupRow = {
 	jid: string

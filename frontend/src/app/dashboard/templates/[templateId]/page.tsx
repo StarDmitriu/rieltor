@@ -23,7 +23,7 @@ import { apiGet, apiPost } from '@/lib/api'
 import type { ColumnsType } from 'antd/es/table'
 
 const BACKEND_URL =
-	process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000'
+	process.env.NEXT_PUBLIC_BACKEND_URL || '/api'
 
 type TemplateRow = {
 	id: string

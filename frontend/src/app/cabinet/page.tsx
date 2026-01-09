@@ -29,7 +29,7 @@ export default function CabinetPage() {
 	const [loading, setLoading] = useState(true)
 
 	const backendUrl =
-		process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000'
+		process.env.NEXT_PUBLIC_BACKEND_URL || '/api'
 
 	useEffect(() => {
 		const token = Cookies.get('token')

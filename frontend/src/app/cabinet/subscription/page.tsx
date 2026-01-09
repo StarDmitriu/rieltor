@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import './page.css'
 
 const backendUrl =
-	process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000'
+	process.env.NEXT_PUBLIC_BACKEND_URL || '/api'
 
 export default function SubscriptionPage() {
 	const router = useRouter()

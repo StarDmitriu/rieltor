@@ -1,0 +1,11 @@
+
+# secrets
+.env
+*.env
+.env.*
+
+# letsencrypt / certbot (do not commit)
+deploy/certbot/
+
+# editor / temp
+*.save

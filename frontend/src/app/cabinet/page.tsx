@@ -77,10 +77,10 @@ export default function CabinetPage() {
 	if (loading) return <div style={{ padding: 24 }}>Загрузка...</div>
 
 	if (!user) {
+		router.push('/auth/phone')
 		return (
 			<div style={{ padding: 24 }}>
 				Пользователь не найден.{' '}
-				<button onClick={() => router.push('/auth/phone')}>Войти</button>
 			</div>
 		)
 	}

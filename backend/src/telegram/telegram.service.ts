@@ -40,6 +40,7 @@ type PendingAuth = {
   phoneCode: Deferred<string>;
   password: Deferred<string>;
   startPromise: Promise<void>;
+  cooldownUntil?: number; // timestamp ms
 };
 
 function isProbablyVideo(contentType: string, url: string) {
@@ -210,6 +211,16 @@ export class TelegramService {
 
     // если pending уже есть — не создаём заново (5 минут)
     const existing = this.pending.get(userId);
+    if (existing?.cooldownUntil && Date.now() < existing.cooldownUntil) {
+      const left = Math.ceil((existing.cooldownUntil - Date.now()) / 1000);
+      return {
+        success: false,
+        status: existing.status,
+        message: 'tg_flood_wait',
+        seconds: left,
+      };
+    }
+
     if (existing && Date.now() - existing.createdAt < 5 * 60_000) {
       return {
         success: true,
@@ -263,9 +274,24 @@ export class TelegramService {
       onError: (err) => {
         const msg = String((err as any)?.message ?? err);
 
-        // ✅ TIMEOUT у updates loop — не считаем фатальным
         if (msg.includes('TIMEOUT')) {
           this.logger.warn(`TG updates timeout (ignored): ${msg}`);
+          return;
+        }
+
+        const m = msg.match(/A wait of (\d+) seconds is required/i);
+        if (m) {
+          const seconds = Number(m[1] || 0);
+          const until = Date.now() + seconds * 1000;
+
+          p.status = 'awaiting_code';
+          p.lastError = `flood_wait_${seconds}`;
+          p.cooldownUntil = until;
+          this.pending.set(userId, p);
+
+          // 🔥 НЕ await — чтобы onError был синхронным
+          void p.client.disconnect().catch(() => undefined);
+
           return;
         }
 

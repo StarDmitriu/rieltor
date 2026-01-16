@@ -300,6 +300,7 @@ export default function HomePage() {
 								<span>Даю согласие на получение информации и напоминаний</span>
 							</label>
 						</div>
+						<button className='contact-button'>Отправить заявку</button>
 					</form>
 
 					<footer className='footer-card'>

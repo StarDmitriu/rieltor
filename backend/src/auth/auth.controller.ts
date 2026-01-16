@@ -2,7 +2,7 @@ import { Body, Controller, Get, Headers, Post, HttpCode } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import * as jwt from 'jsonwebtoken';
 import { requireEnv } from '../config/env';
-
+//backend/src/auth/auth.controller.ts
 @Controller('auth')
 export class AuthController {
   constructor(private auth: AuthService) {}

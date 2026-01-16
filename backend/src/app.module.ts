@@ -12,6 +12,7 @@ import { QueueModule } from './queue/queue.module';
 import { SheetsModule } from './sheets/sheets.module';
 import { TelegramModule } from './telegram/telegram.module';
 import { AdminModule } from './admin/admin.module';
+import { PaymentsModule } from './payments/payments.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { AdminModule } from './admin/admin.module';
     SheetsModule,
     TelegramModule,
     AdminModule,
+    PaymentsModule,
   ],
   controllers: [AppController],
   providers: [AppService, SmsService],

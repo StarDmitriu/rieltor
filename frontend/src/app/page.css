@@ -35,22 +35,43 @@ a {
 	margin: 0 auto;
 }
 
+.houses-layer{
+  position: fixed; /* или absolute внутри .landing */
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 140px);
+  grid-auto-rows: 140px;
+  gap: 24px; /* вот тут твои “px отступы”! */
+  padding: 10px;
+  opacity: 0.18; /* как на макете */
+}
+
+.house{
+  width: 140px;
+  height: auto;
+}
+.landing > * { position: relative; z-index: 1; } /* контент выше фона */
+
+
 /* Фон "домики" (подложка) */
 .landing {
 	min-height: 100vh;
 
-	/* Вариант A: когда ты положишь одну картинку домика в public */
-	/* background-image: url('/house.png'); */
-	/* background-repeat: repeat; */
-	/* background-size: 220px auto; */
-	/* background-position: 0 0; */
+	background-image: url('house.png'); 
+	background-size: 136px auto;
+	background-repeat: repeat;
+	background-position: 0 0; 
 
 	/* Вариант B: просто легкий серый паттерн, чтобы не было пусто */
-	background-image:
+	/*background-image:
 		linear-gradient(rgba(0, 0, 0, 0.04) 1px, transparent 1px),
 		linear-gradient(90deg, rgba(0, 0, 0, 0.04) 1px, transparent 1px);
 	background-size: 220px 220px;
-	background-position: 0 40px;
+	background-position: 0 40px;*/
 }
 
 /* HEADER */
@@ -311,6 +332,11 @@ a {
 	box-shadow: var(--shadow);
 	display: grid;
 	gap: 10px;
+}
+
+.contact-button{
+	max-width: 231px;
+	margin: 0 auto;
 }
 
 .input {

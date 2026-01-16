@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import Cookies from 'js-cookie'
 import { useRouter } from 'next/navigation'
+import { apiPost } from '@/lib/api'
 import './page.css'
 
 const backendUrl =
@@ -148,7 +149,19 @@ export default function SubscriptionPage() {
 
 						{!data.isBlocked ? (
 							<button
-								onClick={() => alert('Оплата будет подключена через Продамус')}
+								onClick={async () => {
+									try {
+										const res = await apiPost('/payments/prodamus/create', {})
+										if (!res?.success || !res?.payment_url) {
+											alert(res?.message || 'Не удалось создать оплату')
+											return
+										}
+										window.location.href = res.payment_url
+									} catch (e) {
+										console.error(e)
+										alert('Ошибка сети')
+									}
+								}}
 								style={{ padding: 10, marginLeft: 8 }}
 							>
 								Оплатить 2000₽ / месяц

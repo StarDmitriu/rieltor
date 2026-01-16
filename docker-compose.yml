@@ -23,6 +23,10 @@ services:
       CAMPAIGN_REPEAT_ENABLED: "true"
       DEFAULT_TZ: Europe/Moscow
       # REDIS_URL: redis://redis:6379
+      SMSRU_API_ID: ${SMSRU_API_ID}
+
+      PRODAMUS_FORM_URL: ${PRODAMUS_FORM_URL}   # https://chatrassylka.payform.ru/
+      PRODAMUS_SECRET_KEY: ${PRODAMUS_SECRET_KEY}
 
 
       SUPABASE_URL: ${SUPABASE_URL}

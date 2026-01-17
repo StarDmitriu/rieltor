@@ -118,7 +118,10 @@ export class ProdamusController {
     const rawBody = (req?.body ?? body ?? {}) as Record<string, any>;
     const expanded = this.prodamus.expandBracketKeys(rawBody);
 
-    const ok = this.prodamus.verify(expanded, signature);
+    const dataToVerify = expanded?.submit ? expanded.submit : expanded;
+
+    const ok = this.prodamus.verify(dataToVerify, signature);
+
     if (!ok) {
       // НЕ 200 -> Prodamus будет ретраить
       throw new ForbiddenException('invalid_signature');
@@ -134,9 +137,18 @@ export class ProdamusController {
     // order_id = ID заказа в Prodamus
     // order_num = номер заказа на стороне магазина
     const orderNum = String(
-      expanded?.order_num || expanded?.order_id || '',
+      expanded?.submit?.order_num ||
+        expanded?.order_num ||
+        expanded?.submit?.order_id || // на всякий случай
+        expanded?.order_id ||
+        '',
     ).trim();
-    const prodamusOrderId = String(expanded?.order_id || '').trim();
+
+    const prodamusOrderId = String(
+      expanded?.submit?.order_id || expanded?.order_id || '',
+    ).trim();
+
+
 
     const paymentStatus = String(expanded?.payment_status || '').trim(); // success | order_canceled | ...
     const sum = String(expanded?.sum || '').trim();

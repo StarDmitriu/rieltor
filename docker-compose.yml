@@ -20,6 +20,8 @@ services:
       REDIS_PORT: 6379
       TG_API_ID: "38841476"
       TG_API_HASH: "f7d028dd897d7c54ed245b7a959bb68c"
+      TELEGRAM_AUTOCONNECT: "false"
+
       CAMPAIGN_REPEAT_ENABLED: "true"
       DEFAULT_TZ: Europe/Moscow
       # REDIS_URL: redis://redis:6379
@@ -27,6 +29,8 @@ services:
 
       PRODAMUS_FORM_URL: ${PRODAMUS_FORM_URL}   # https://chatrassylka.payform.ru/
       PRODAMUS_SECRET_KEY: ${PRODAMUS_SECRET_KEY}
+      PRODAMUS_SYS: ${PRODAMUS_SYS}
+
 
 
       SUPABASE_URL: ${SUPABASE_URL}

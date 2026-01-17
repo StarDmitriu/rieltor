@@ -148,7 +148,7 @@ export class TelegramService {
       .eq('id', userId)
       .maybeSingle();
 
-    if (!error && user?.tg_session) {
+    /*if (!error && user?.tg_session) {
       // попробуем подключиться “тихо”
       try {
         await this.connectFromSavedSession(
@@ -161,7 +161,18 @@ export class TelegramService {
           `TG connectFromSavedSession failed: ${e?.message ?? e}`,
         );
       }
-    }
+    }*/
+   if (
+     process.env.TELEGRAM_AUTOCONNECT === 'true' &&
+     !error &&
+     user?.tg_session
+   ) {
+     await this.connectFromSavedSession(
+       userId,
+       String((user as any).tg_session),
+     );
+   }
+
 
     return { success: true, status: 'not_connected' as TgStatus };
   }

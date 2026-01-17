@@ -35,8 +35,8 @@ a {
 	margin: 0 auto;
 }
 
-.houses-layer{
-  position: fixed; /* или absolute внутри .landing */
+/*.houses-layer{
+  position: fixed;
   inset: 0;
   z-index: 0;
   pointer-events: none;
@@ -45,10 +45,10 @@ a {
   display: grid;
   grid-template-columns: repeat(auto-fill, 140px);
   grid-auto-rows: 140px;
-  gap: 24px; /* вот тут твои “px отступы”! */
+  gap: 24px; 
   padding: 10px;
-  opacity: 0.18; /* как на макете */
-}
+  opacity: 0.18; 
+}*/
 
 .house{
   width: 140px;
@@ -59,12 +59,12 @@ a {
 
 /* Фон "домики" (подложка) */
 .landing {
-	min-height: 100vh;
+	/*min-height: 100vh;
 
 	background-image: url('house.png'); 
 	background-size: 136px auto;
 	background-repeat: repeat;
-	background-position: 0 0; 
+	background-position: 0 0; */
 
 	/* Вариант B: просто легкий серый паттерн, чтобы не было пусто */
 	/*background-image:

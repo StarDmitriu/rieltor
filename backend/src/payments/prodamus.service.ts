@@ -7,10 +7,12 @@ type AnyObj = Record<string, any>;
 export class ProdamusService {
   private readonly formUrl = (process.env.PRODAMUS_FORM_URL || '').trim();
   private readonly secretKey = (process.env.PRODAMUS_SECRET_KEY || '').trim();
+  private readonly sys = (process.env.PRODAMUS_SYS || '').trim(); // <-- ДОБАВЬ
 
   assertConfig() {
     if (!this.formUrl) throw new Error('Missing env: PRODAMUS_FORM_URL');
     if (!this.secretKey) throw new Error('Missing env: PRODAMUS_SECRET_KEY');
+    if (!this.sys) throw new Error('Missing env: PRODAMUS_SYS'); // <-- ДОБАВЬ
   }
 
   getBaseFormUrl(): string {
@@ -142,6 +144,7 @@ export class ProdamusService {
 
     const dataForSign: AnyObj = {
       do: 'link',
+      sys: this.sys,
       order_id: params.orderId,
       customer_phone: params.customerPhone || '',
       customer_email: params.customerEmail || '',
@@ -160,6 +163,7 @@ export class ProdamusService {
     // В URL кладём "плоско", как принимает Payform
     const q = new URLSearchParams();
     q.set('do', 'link');
+    q.set('sys', this.sys);   
     q.set('order_id', params.orderId);
     if (params.customerPhone) q.set('customer_phone', params.customerPhone);
     if (params.customerEmail) q.set('customer_email', params.customerEmail);

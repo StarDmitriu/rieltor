@@ -1,4 +1,4 @@
-//backend/src/telegram/telegram.service.ts
+// backend/src/telegram/telegram.service.ts
 import { Injectable, Logger } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 import { TelegramClient } from 'telegram';
@@ -30,6 +30,17 @@ function deferred<T>(): Deferred<T> {
   return { promise, resolve, reject };
 }
 
+function normalizePhone(raw: string) {
+  let s = String(raw || '').trim();
+  // оставляем только цифры и плюс
+  s = s.replace(/[^\d+]/g, '');
+
+  // если без плюса, но похоже на номер — добавим +
+  if (!s.startsWith('+') && /^\d{10,15}$/.test(s)) s = '+' + s;
+
+  return s;
+}
+
 type PendingAuth = {
   client: TelegramClient;
   phone: string;
@@ -40,6 +51,7 @@ type PendingAuth = {
   phoneCode: Deferred<string>;
   password: Deferred<string>;
   startPromise: Promise<void>;
+
   cooldownUntil?: number; // timestamp ms
 };
 
@@ -128,15 +140,22 @@ export class TelegramService {
 
   // ---------- status ----------
   async getStatus(userId: string) {
-    if (this.sessions.has(userId))
+    if (this.sessions.has(userId)) {
       return { success: true, status: 'connected' as TgStatus };
+    }
 
     const p = this.pending.get(userId);
     if (p) {
+      const left =
+        p.cooldownUntil && Date.now() < p.cooldownUntil
+          ? Math.ceil((p.cooldownUntil - Date.now()) / 1000)
+          : 0;
+
       return {
         success: true,
         status: p.status,
         lastError: p.lastError || null,
+        cooldownSeconds: left || null,
       };
     }
 
@@ -148,8 +167,7 @@ export class TelegramService {
       .eq('id', userId)
       .maybeSingle();
 
-    /*if (!error && user?.tg_session) {
-      // попробуем подключиться “тихо”
+    if (!error && (user as any)?.tg_session) {
       try {
         await this.connectFromSavedSession(
           userId,
@@ -161,18 +179,7 @@ export class TelegramService {
           `TG connectFromSavedSession failed: ${e?.message ?? e}`,
         );
       }
-    }*/
-   if (
-     process.env.TELEGRAM_AUTOCONNECT === 'true' &&
-     !error &&
-     user?.tg_session
-   ) {
-     await this.connectFromSavedSession(
-       userId,
-       String((user as any).tg_session),
-     );
-   }
-
+    }
 
     return { success: true, status: 'not_connected' as TgStatus };
   }
@@ -184,9 +191,7 @@ export class TelegramService {
       retryDelay: 1000,
     });
 
-
-    await client.connect(); // не запускает логин, просто connect
-    // проверим что авторизован
+    await client.connect();
     const me = await client.getMe().catch(() => null);
     if (!me) {
       await client.disconnect().catch(() => undefined);
@@ -197,8 +202,9 @@ export class TelegramService {
   }
 
   // ---------- auth start (send code) ----------
-  // ---------- auth start (send code) ----------
   async startAuth(userId: string) {
+    this.logger.log(`[TG] startAuth userId=${userId}`);
+
     const supabase = this.supabaseService.getClient();
     const { data: user, error } = await supabase
       .from('users')
@@ -208,8 +214,10 @@ export class TelegramService {
 
     if (error || !user) return { success: false, message: 'user_not_found' };
 
-    const phone = String((user as any).phone || '').trim();
-    if (!phone) return { success: false, message: 'user_phone_empty' };
+    let phone = normalizePhone(String((user as any).phone || ''));
+    if (!phone.startsWith('+')) {
+      return { success: false, message: 'user_phone_invalid_format' };
+    }
 
     // если уже подключён — ок
     if (this.sessions.has(userId)) {
@@ -220,7 +228,7 @@ export class TelegramService {
       };
     }
 
-    // если pending уже есть — не создаём заново (5 минут)
+    // если pending уже есть — не создаём заново (5 минут), а если floodwait — возвращаем его
     const existing = this.pending.get(userId);
     if (existing?.cooldownUntil && Date.now() < existing.cooldownUntil) {
       const left = Math.ceil((existing.cooldownUntil - Date.now()) / 1000);
@@ -260,61 +268,85 @@ export class TelegramService {
       startPromise: Promise.resolve(),
     };
 
-    // Важно: стартуем login flow, но он будет ждать наш phoneCode/password через deferred
+    // ВАЖНО: НЕ вызываем auth.SendCode вручную.
+    // client.start сам отправит код и будет ждать ввода через phoneCode().
     p.startPromise = client.start({
       phoneNumber: async () => phone,
 
       phoneCode: async () => {
-        // gramjs может запросить код повторно если ввели неверно
+        this.logger.log(
+          '[TG] phoneCode() callback entered (code was sent by Telegram)',
+        );
         const code = await p.phoneCode.promise;
-        p.phoneCode = deferred<string>();
+        p.phoneCode = deferred<string>(); // allow retries if code wrong
         return code;
       },
 
       password: async () => {
-        // как только gramjs запросил 2FA — обновим статус
         p.status = 'awaiting_password';
         p.lastError = undefined;
         this.pending.set(userId, p);
 
         const pass = await p.password.promise;
-        p.password = deferred<string>();
+        p.password = deferred<string>(); // allow retries
         return pass;
       },
 
       onError: (err) => {
         const msg = String((err as any)?.message ?? err);
+        this.logger.warn(`[TG] start onError: ${msg}`);
 
+        // TIMEOUT — шум gramjs, не считаем фатальным
         if (msg.includes('TIMEOUT')) {
-          this.logger.warn(`TG updates timeout (ignored): ${msg}`);
+          this.logger.warn(`[TG] TIMEOUT ignored: ${msg}`);
           return;
         }
 
+        // FLOOD_WAIT
         const m = msg.match(/A wait of (\d+) seconds is required/i);
         if (m) {
           const seconds = Number(m[1] || 0);
-          const until = Date.now() + seconds * 1000;
-
           p.status = 'awaiting_code';
           p.lastError = `flood_wait_${seconds}`;
-          p.cooldownUntil = until;
+          p.cooldownUntil = Date.now() + seconds * 1000;
           this.pending.set(userId, p);
-
-          // 🔥 НЕ await — чтобы onError был синхронным
           void p.client.disconnect().catch(() => undefined);
-
           return;
         }
 
         p.status = 'error';
         p.lastError = msg;
         this.pending.set(userId, p);
-        this.logger.warn(`TG start() error: ${msg}`);
       },
     });
 
-    this.pending.set(userId, p);
+    // если startPromise упал (не через onError) — зафиксируем
+    p.startPromise.catch((e: any) => {
+      const msg = String(e?.message ?? e);
 
+      if (msg.includes('TIMEOUT')) {
+        this.logger.warn(`[TG] startPromise TIMEOUT ignored: ${msg}`);
+        return;
+      }
+
+      const m = msg.match(/A wait of (\d+) seconds is required/i);
+      if (m) {
+        const seconds = Number(m[1] || 0);
+        p.status = 'awaiting_code';
+        p.lastError = `flood_wait_${seconds}`;
+        p.cooldownUntil = Date.now() + seconds * 1000;
+        this.pending.set(userId, p);
+        void p.client.disconnect().catch(() => undefined);
+        return;
+      }
+
+      p.status = 'error';
+      p.lastError = msg;
+      this.pending.set(userId, p);
+      this.logger.warn(`[TG] startPromise failed: ${msg}`);
+    });
+
+    this.pending.set(userId, p);
     return { success: true, status: 'awaiting_code' as TgStatus };
   }
 
@@ -323,20 +355,29 @@ export class TelegramService {
     const p = this.pending.get(userId);
     if (!p) return { success: false, message: 'auth_not_started' };
 
+    // если floodwait ещё активен — не принимаем код и не дёргаем start
+    if (p.cooldownUntil && Date.now() < p.cooldownUntil) {
+      const left = Math.ceil((p.cooldownUntil - Date.now()) / 1000);
+      return {
+        success: false,
+        message: 'tg_flood_wait',
+        seconds: left,
+        status: p.status,
+      };
+    }
+
     const c = String(code || '').trim();
     if (!c) return { success: false, message: 'code_required' };
 
     try {
       p.phoneCode.resolve(c);
 
-      // ждём немного: если 2FA не нужна — startPromise быстро завершится
-      // если нужна — статус переключится в password callback и останется pending
+      // даём start() шанс завершиться / переключить статус на пароль
       await Promise.race([
         p.startPromise,
-        new Promise((res) => setTimeout(res, 250)),
+        new Promise((res) => setTimeout(res, 400)),
       ]);
 
-      // если уже авторизован — сохраняем сессию
       const me = await p.client.getMe().catch(() => null);
       if (me) {
         const sessionStr = (p.client.session as any).save() as string;
@@ -353,10 +394,24 @@ export class TelegramService {
         return { success: true, status: 'connected' as TgStatus };
       }
 
-      // если не завершилось — значит ждём пароль (или ещё что-то)
-      return { success: true, status: p.status as TgStatus };
+      return {
+        success: true,
+        status: p.status as TgStatus,
+        lastError: p.lastError || null,
+      };
     } catch (e: any) {
       const msg = String(e?.message ?? e);
+
+      const m = msg.match(/A wait of (\d+) seconds is required/i);
+      if (m) {
+        const seconds = Number(m[1] || 0);
+        p.status = 'awaiting_code';
+        p.lastError = `flood_wait_${seconds}`;
+        p.cooldownUntil = Date.now() + seconds * 1000;
+        this.pending.set(userId, p);
+        return { success: false, message: 'tg_flood_wait', seconds };
+      }
+
       p.lastError = msg;
       this.pending.set(userId, p);
       return { success: false, message: 'tg_confirm_code_failed', error: msg };
@@ -374,7 +429,6 @@ export class TelegramService {
     try {
       p.password.resolve(pass);
 
-      // ждём завершения start()
       await p.startPromise;
 
       const me = await p.client.getMe().catch(() => null);
@@ -394,6 +448,17 @@ export class TelegramService {
       return { success: true, status: 'connected' as TgStatus };
     } catch (e: any) {
       const msg = String(e?.message ?? e);
+
+      const m = msg.match(/A wait of (\d+) seconds is required/i);
+      if (m) {
+        const seconds = Number(m[1] || 0);
+        p.status = 'awaiting_code';
+        p.lastError = `flood_wait_${seconds}`;
+        p.cooldownUntil = Date.now() + seconds * 1000;
+        this.pending.set(userId, p);
+        return { success: false, message: 'tg_flood_wait', seconds };
+      }
+
       p.lastError = msg;
       p.status = 'awaiting_password';
       this.pending.set(userId, p);
@@ -414,7 +479,7 @@ export class TelegramService {
       this.pending.delete(userId);
     }
 
-    // ✅ ВАЖНО: иначе status() мгновенно подключит обратно
+    // важно: иначе status() сразу подключит обратно
     const supabase = this.supabaseService.getClient();
     await supabase.from('users').update({ tg_session: null }).eq('id', userId);
 
@@ -423,40 +488,36 @@ export class TelegramService {
 
   // ---------- sync groups ----------
   async syncGroups(userId: string) {
-     const client = await this.getConnectedClient(userId);
-     if (!client) return { success: false, message: 'telegram_not_connected' };
+    const client = await this.getConnectedClient(userId);
+    if (!client) return { success: false, message: 'telegram_not_connected' };
 
-     let dialogs;
-     try {
-       dialogs = await client.getDialogs({});
-     } catch (e: any) {
-       const msg = String(e?.message ?? e);
+    let dialogs;
+    try {
+      dialogs = await client.getDialogs({});
+    } catch (e: any) {
+      const msg = String(e?.message ?? e);
+      if (msg.includes('TIMEOUT')) {
+        this.logger.warn(`TG getDialogs TIMEOUT: ${msg}`);
+        return { success: false, message: 'telegram_timeout', error: msg };
+      }
+      this.logger.error(`TG getDialogs failed: ${msg}`);
+      return {
+        success: false,
+        message: 'telegram_get_dialogs_failed',
+        error: msg,
+      };
+    }
 
-       // TIMEOUT у gramjs/updates — частая штука, не делаем 500
-       if (msg.includes('TIMEOUT')) {
-         this.logger.warn(`TG getDialogs TIMEOUT: ${msg}`);
-         return { success: false, message: 'telegram_timeout', error: msg };
-       }
-
-       this.logger.error(`TG getDialogs failed: ${msg}`);
-       return {
-         success: false,
-         message: 'telegram_get_dialogs_failed',
-         error: msg,
-       };
-     }
     const nowIso = new Date().toISOString();
-
     const rows: any[] = [];
 
     for (const d of dialogs) {
       const ent: any = d.entity;
 
-      const isGroup = ent?.className === 'Chat' || ent?.className === 'Channel'; // Channel => supergroup/channel
+      const isGroup = ent?.className === 'Chat' || ent?.className === 'Channel';
       if (!isGroup) continue;
 
-      // исключаем “каналы” (broadcast) — нам нужны именно группы
-      // у Channel есть поле broadcast=true если это канал
+      // exclude broadcast channels
       if (ent?.className === 'Channel' && ent?.broadcast) continue;
 
       const chatIdStr = String(ent?.id);
@@ -550,7 +611,7 @@ export class TelegramService {
     const rawId = String(tgChatId || '').trim();
     if (!rawId) throw new Error('tg_chat_id_empty');
 
-    // ✅ достаём peer-данные из БД
+    // достаём peer-данные из БД
     const supabase = this.supabaseService.getClient();
     const { data: g, error: gErr } = await supabase
       .from('telegram_groups')
@@ -562,7 +623,6 @@ export class TelegramService {
     if (gErr) throw new Error(`supabase_telegram_groups_error:${gErr.message}`);
 
     let peer: any = null;
-
     const tgType = String((g as any)?.tg_type || '');
     const ah = (g as any)?.tg_access_hash;
 
@@ -570,16 +630,13 @@ export class TelegramService {
       peer = new Api.InputPeerChat({ chatId: bigInt(rawId) });
     } else if (tgType === 'channel') {
       if (!ah) throw new Error('tg_access_hash_missing');
-
       peer = new Api.InputPeerChannel({
         channelId: bigInt(rawId),
         accessHash: bigInt(String(ah)),
       });
     } else {
-      // fallback
       peer = /^-?\d+$/.test(rawId) ? bigInt(rawId) : rawId;
     }
-
 
     const text = payload.text || '';
     const mediaUrl = String(payload.mediaUrl || '').trim();
@@ -596,9 +653,8 @@ export class TelegramService {
       const r = await fetchWithTimeout(mediaUrl, 25_000);
       buf = r.buf;
       contentType = r.contentType;
-    } catch (e: any) {
+    } catch {
       // если медиа не скачалось — отправим хотя бы текст
-      // ✅ и НЕ валим отправку полностью, иначе будет failed при реально доставленном тексте
       await client.sendMessage(peer, { message: text });
       return;
     }
@@ -615,7 +671,6 @@ export class TelegramService {
       return;
     }
 
-    // если тип неясен — отправим текст
     await client.sendMessage(peer, { message: text });
   }
 
@@ -633,7 +688,7 @@ export class TelegramService {
       .eq('id', userId)
       .maybeSingle();
 
-    if (error || !user?.tg_session) return null;
+    if (error || !(user as any)?.tg_session) return null;
 
     try {
       await this.connectFromSavedSession(

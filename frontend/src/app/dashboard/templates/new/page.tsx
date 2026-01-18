@@ -20,6 +20,9 @@ import type { ColumnsType } from 'antd/es/table'
 import { UploadOutlined } from '@ant-design/icons'
 import { useRouter } from 'next/navigation'
 import { apiPost } from '@/lib/api'
+import './page.css'
+import Image from 'next/image'
+
 
 const BACKEND_URL =
 	process.env.NEXT_PUBLIC_BACKEND_URL || '/api'
@@ -307,7 +310,7 @@ export default function TemplateCreatePage() {
 			if (!ok) return
 
 			message.success('Шаблон создан и группы сохранены (WA/TG)')
-			router.push(`/dashboard/templates/${templateId}`)
+			router.push(`/dashboard/templates/`)
 		} catch (e) {
 			console.error(e)
 			message.error('Ошибка сети при создании шаблона')
@@ -317,168 +320,229 @@ export default function TemplateCreatePage() {
 	}
 
 	return (
-		<div style={{ padding: 24, maxWidth: 980 }}>
-			<h1>Создание шаблона</h1>
+		<div className='tedit'>
+			<div className='tedit__wrap'>
+				<h1 className='tedit__title'>Создание шаблона</h1>
 
-			<div style={{ marginBottom: 12, opacity: 0.75 }}>
-				userId: <code>{userId || '—'}</code>
-			</div>
-
-			<Form
-				form={form}
-				layout='vertical'
-				initialValues={{ enabled: true, order: 1 }}
-				onFinish={onFinish}
-			>
-				<Form.Item label='Название шаблона' name='title'>
-					<Input placeholder='Например: Акция / Подбор объектов / Описание квартиры' />
-				</Form.Item>
-
-				<Form.Item
-					label='Текст сообщения'
-					name='text'
-					rules={[
-						{
-							validator: async (_, value) => {
-								const title = form.getFieldValue('title')
-								if (
-									!String(title || '').trim() &&
-									!String(value || '').trim()
-								) {
-									return Promise.reject(
-										new Error('Нужно заполнить title или text')
-									)
-								}
-								return Promise.resolve()
-							},
-						},
-					]}
+				<Form
+					className='tedit__form'
+					form={form}
+					layout='vertical'
+					initialValues={{ enabled: true, order: 1 }}
+					onFinish={onFinish}
 				>
-					<Input.TextArea rows={6} placeholder='Введите текст сообщения' />
-				</Form.Item>
-
-				<Form.Item label='Медиа (картинка/видео)'>
-					<Space direction='vertical' style={{ width: '100%' }}>
-						<Upload {...uploadProps}>
-							<Button
-								icon={<UploadOutlined />}
-								loading={uploading}
-								disabled={!userId}
-							>
-								Выбрать файл
-							</Button>
-						</Upload>
-
-						{mediaUrl ? (
-							<div style={{ fontSize: 13 }}>
-								Текущая ссылка:{' '}
-								<a href={mediaUrl} target='_blank' rel='noreferrer'>
-									открыть
-								</a>{' '}
-								<Button
-									size='small'
-									style={{ marginLeft: 8 }}
-									onClick={() => setMediaUrl(null)}
-								>
-									Убрать
-								</Button>
-							</div>
-						) : (
-							<div style={{ fontSize: 13, opacity: 0.7 }}>Файл не выбран</div>
-						)}
-					</Space>
-				</Form.Item>
-
-				<Space wrap>
-					<Form.Item label='Включен' name='enabled' valuePropName='checked'>
-						<Switch />
-					</Form.Item>
-
-					<Form.Item label='Order' name='order'>
-						<InputNumber min={1} />
-					</Form.Item>
-				</Space>
-
-				{/* ✅ ВЫБОР ГРУПП WA/TG */}
-				<div
-					style={{
-						marginTop: 18,
-						padding: 12,
-						border: '1px solid #eee',
-						borderRadius: 12,
-					}}
-				>
-					<div style={{ fontWeight: 700, marginBottom: 8 }}>
-						Куда отправлять этот шаблон
+					{/* Название */}
+					<div className='tedit-field'>
+						<div className='tedit-field__label'>Название шаблона</div>
+						<Form.Item name='title' style={{ marginBottom: 0 }}>
+							<Input className='tedit-input' placeholder='' bordered={false} />
+						</Form.Item>
+						<div className='tedit-field__hint'>
+							Например: Описание квартиры, Акция, Подбор объектов
+						</div>
 					</div>
 
-					<div style={{ marginBottom: 10 }}>
-						<Segmented
-							value={channel}
-							onChange={v => setChannel(v as any)}
-							options={[
-								{ label: 'WhatsApp', value: 'wa' },
-								{ label: 'Telegram', value: 'tg' },
+					{/* Текст */}
+					<div className='tedit-field'>
+						<div className='tedit-field__label'>Текст сообщения</div>
+						<Form.Item
+							name='text'
+							style={{ marginBottom: 0 }}
+							rules={[
+								{
+									validator: async (_, value) => {
+										const title = form.getFieldValue('title')
+										if (
+											!String(title || '').trim() &&
+											!String(value || '').trim()
+										) {
+											return Promise.reject(
+												new Error('Нужно заполнить title или text')
+											)
+										}
+										return Promise.resolve()
+									},
+								},
 							]}
-						/>
-					</div>
-
-					<div style={{ marginBottom: 10, opacity: 0.75 }}>
-						Канал: <b>{channel.toUpperCase()}</b> | Выбрано:{' '}
-						<b>{currentSelected.length}</b> | Доступно:{' '}
-						<b>{currentGroups.length}</b>
-					</div>
-
-					<Space style={{ marginBottom: 10 }} wrap>
-						<Button
-							onClick={() => setCurrentSelected(currentGroups.map(g => g.jid))}
-							disabled={!currentGroups.length}
 						>
-							Выбрать все
-						</Button>
-						<Button
-							onClick={() => setCurrentSelected([])}
-							disabled={!currentSelected.length}
-						>
-							Снять все
-						</Button>
-					</Space>
-
-					<Table
-						rowKey='jid'
-						columns={groupColumns}
-						dataSource={currentGroups}
-						pagination={{ pageSize: 8 }}
-						rowSelection={{
-							selectedRowKeys: currentSelected,
-							onChange: keys => setCurrentSelected(keys as string[]),
-						}}
-					/>
-
-					<div style={{ marginTop: 8, fontSize: 12, opacity: 0.75 }}>
-						Выбор сохраняется после создания шаблона. (WA и TG сохраняются
-						отдельно)
+							<Input.TextArea
+								className='tedit-textarea'
+								rows={4}
+								placeholder=''
+								bordered={false}
+							/>
+						</Form.Item>
+						<div className='tedit-field__hint'>
+							Например: Введите текст сообщения. Поддерживается форматирование и
+							эмодзи
+						</div>
 					</div>
-				</div>
 
-				<Space style={{ marginTop: 12 }}>
-					<Button
-						type='primary'
-						htmlType='submit'
-						loading={saving}
-						disabled={uploading || savingTargets}
-					>
-						Сохранить шаблон
-					</Button>
+					{/* Загрузка */}
+					<div className='tedit-upload'>
+						<div className='tedit-upload__label'>Прикрепите изображение</div>
 
-					<Button
-						onClick={() => router.push('/dashboard/templates')}
-						disabled={saving}
-					>
-						Назад
-					</Button>
-				</Space>
-			</Form>
+						<div className='tedit-upload__row'>
+							<div className='tedit-upload__drop'>
+								<Upload {...uploadProps}>
+									<button
+										type='button'
+										className='tedit-upload__btn'
+										disabled={!userId || uploading}
+									>
+										<span className='tedit-upload__icon'>
+											<Image
+												src='/iconFoto.png'
+												alt='Картинка'
+												width={19}
+												height={19}
+											/>
+										</span>
+										<span>
+											Добавьте фото объекта
+											<br />
+											или промо-картинку
+										</span>
+									</button>
+								</Upload>
+							</div>
+
+							<div className='tedit-upload__note'>
+								<div className='tedit-upload__noteTitle'>Внимание!</div>
+								<div className='tedit-upload__noteText'>
+									Можно добавить только 1 изображение
+									<br />
+									Советуем сделать коллаж из фото
+								</div>
+
+								{mediaUrl ? (
+									<div className='tedit-upload__current'>
+										<div className='tedit-upload__currentLine'>
+											Текущий файл:{' '}
+											<a href={mediaUrl} target='_blank' rel='noreferrer'>
+												открыть
+											</a>
+										</div>
+										<button
+											type='button'
+											className='tedit-linkbtn'
+											onClick={() => setMediaUrl(null)}
+										>
+											Убрать
+										</button>
+									</div>
+								) : null}
+							</div>
+						</div>
+					</div>
+
+					{/* Вкл/Order */}
+					<div className='tedit-mini'>
+						<div className='tedit-mini__item'>
+							<div className='tedit-mini__label'>Включен</div>
+							<Form.Item
+								name='enabled'
+								valuePropName='checked'
+								style={{ marginBottom: 0 }}
+							>
+								<Switch />
+							</Form.Item>
+						</div>
+
+						<div className='tedit-mini__item'>
+							<div className='tedit-mini__label'>Order</div>
+							<Form.Item name='order' style={{ marginBottom: 0 }}>
+								<InputNumber min={1} />
+							</Form.Item>
+						</div>
+					</div>
+
+					{/* Группы */}
+					<div className='tedit-targets'>
+						<div className='tedit-targets__head'>
+							<div className='tedit-targets__title'>
+								Куда отправлять этот шаблон
+							</div>
+
+							<Segmented
+								value={channel}
+								onChange={v => setChannel(v as any)}
+								options={[
+									{ label: 'WhatsApp', value: 'wa' },
+									{ label: 'Telegram', value: 'tg' },
+								]}
+							/>
+						</div>
+
+						<div className='tedit-targets__meta'>
+							Канал: <b>{channel.toUpperCase()}</b> · Выбрано:{' '}
+							<b>{currentSelected.length}</b> · Доступно:{' '}
+							<b>{currentGroups.length}</b>
+						</div>
+
+						<div className='tedit-targets__buttons'>
+							<button
+								type='button'
+								className='tedit-pill'
+								onClick={() =>
+									setCurrentSelected(currentGroups.map(g => g.jid))
+								}
+								disabled={!currentGroups.length}
+							>
+								Выбрать все
+							</button>
+
+							<button
+								type='button'
+								className='tedit-pill'
+								onClick={() => setCurrentSelected([])}
+								disabled={!currentSelected.length}
+							>
+								Снять все
+							</button>
+						</div>
+
+						<div className='tedit-table'>
+							<Table
+								rowKey='jid'
+								columns={groupColumns}
+								dataSource={currentGroups}
+								pagination={{ pageSize: 8 }}
+								rowSelection={{
+									selectedRowKeys: currentSelected,
+									onChange: keys => setCurrentSelected(keys as string[]),
+								}}
+							/>
+						</div>
+
+						<div className='tedit-targets__hint'>
+							Выбор сохранится после создания шаблона. (WA и TG сохраняются
+							отдельно)
+						</div>
+					</div>
+
+					{/* Кнопки */}
+					<div className='tedit-actions'>
+						<button
+							className='tedit-btn tedit-btn--primary'
+							type='submit'
+							disabled={saving || uploading || savingTargets}
+						>
+							{saving ? 'Сохраняем…' : 'Сохранить шаблон'}
+						</button>
+
+						<button
+							className='tedit-btn'
+							type='button'
+							onClick={() => router.push('/dashboard/templates')}
+							disabled={saving}
+						>
+							Назад
+						</button>
+					</div>
+				</Form>
+			</div>
 		</div>
 	)
+
 }

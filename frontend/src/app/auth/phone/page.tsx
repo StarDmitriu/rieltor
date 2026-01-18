@@ -2,9 +2,9 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import './page.css'
 
-const backendUrl =
-	process.env.NEXT_PUBLIC_BACKEND_URL || '/api'
+const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || '/api'
 
 export default function LoginPage() {
 	const [phone, setPhone] = useState('')
@@ -12,7 +12,7 @@ export default function LoginPage() {
 	const router = useRouter()
 
 	const sendCode = async () => {
-		if (!phone) {
+		if (!phone.trim()) {
 			alert('Введите номер телефона')
 			return
 		}
@@ -22,19 +22,19 @@ export default function LoginPage() {
 			const res = await fetch(`${backendUrl}/auth/send-code`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ phone }),
+				body: JSON.stringify({ phone: phone.trim() }),
 			})
 
-			const data = await res.json()
-			console.log('POST /auth/send-code (login):', data)
+			const data = await res.json().catch(() => ({}))
 
-			if (!data.success) {
-				alert(data.message || 'Ошибка при отправке кода')
+			if (!data?.success) {
+				alert(data?.message || 'Ошибка при отправке кода')
 				return
 			}
 
-			// переходим на страницу кода в режиме login
-			router.push(`/auth/code?phone=${encodeURIComponent(phone)}&mode=login`)
+			router.push(
+				`/auth/code?phone=${encodeURIComponent(phone.trim())}&mode=login`
+			)
 		} catch (err) {
 			console.error(err)
 			alert('Ошибка сети, попробуйте ещё раз')
@@ -44,42 +44,48 @@ export default function LoginPage() {
 	}
 
 	return (
-		<div style={{ padding: 24, maxWidth: 400 }}>
-			<h1>Вход</h1>
-			<p>Введите номер телефона, чтобы войти.</p>
+		<main className='auth'>
+			<div className='auth__wrap'>
+				<h1 className='auth__title'>Войдите в свой аккаунт</h1>
+				<p className='auth__subtitle'>
+					Введите номер телефона,
+					<br />
+					чтобы продолжить работу с сервисом
+				</p>
 
-			<input
-				placeholder='Номер телефона'
-				value={phone}
-				onChange={e => setPhone(e.target.value)}
-				style={{ width: '100%', padding: 10, marginTop: 12, marginBottom: 12 }}
-			/>
+				<section className='auth-card'>
+					<input
+						id='phone'
+						className='auth-card__input'
+						placeholder='Ваш номер телефона'
+						value={phone}
+						onChange={e => setPhone(e.target.value)}
+						inputMode='tel'
+						autoComplete='tel'
+					/>
 
-			<button
-				onClick={sendCode}
-				disabled={loading}
-				style={{ padding: '10px 16px' }}
-			>
-				{loading ? 'Отправляем код...' : 'Получить код'}
-			</button>
+					<button
+						type='button'
+						className='auth-card__button'
+						onClick={sendCode}
+						disabled={loading}
+					>
+						{loading ? 'Отправляем код…' : 'Получить код'}
+					</button>
+				</section>
 
-			<div style={{ marginTop: 16 }}>
-				Нет аккаунта?{' '}
-				<button
-					type='button'
-					onClick={() => router.push('/auth/register')}
-					style={{
-						border: 'none',
-						background: 'none',
-						color: 'blue',
-						textDecoration: 'underline',
-						cursor: 'pointer',
-						padding: 0,
-					}}
-				>
-					Зарегистрироваться
-				</button>
+				<div className='auth__below'>
+					<div className='auth__belowTitle'>Нет аккаунта?</div>
+
+					<button
+						type='button'
+						className='auth__outlineBtn'
+						onClick={() => router.push('/auth/register')}
+					>
+						Зарегистрируйтесь
+					</button>
+				</div>
 			</div>
-		</div>
+		</main>
 	)
 }

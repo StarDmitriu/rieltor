@@ -7,6 +7,19 @@ import './page.css'
 export default function HomePage() {
 	const [menuOpen, setMenuOpen] = useState(false)
 
+
+	const [fullName, setFullName] = useState('')
+	const [phone, setPhone] = useState('')
+	const [birthDate, setBirthDate] = useState('')
+	const [city, setCity] = useState('')
+	const [telegram, setTelegram] = useState('')
+
+	const [pdConsent, setPdConsent] = useState(false)
+	const [marketingConsent, setMarketingConsent] = useState(false)
+
+	const [sending, setSending] = useState(false)
+
+
 	useEffect(() => {
 		// блокируем скролл при открытом меню
 		document.body.style.overflow = menuOpen ? 'hidden' : ''
@@ -16,6 +29,8 @@ export default function HomePage() {
 	}, [menuOpen])
 
 	const closeMenu = () => setMenuOpen(false)
+
+	
 
 	return (
 		<main className='landing'>
@@ -283,24 +298,137 @@ export default function HomePage() {
 				<div className='container'>
 					<h2 className='section-title'>Форма обратной связи</h2>
 
-					<form className='contact-card' onSubmit={e => e.preventDefault()}>
-						<input className='input' placeholder='Имя и фамилия *' />
-						<input className='input' placeholder='Номер телефона *' />
-						<input className='input' placeholder='Дата рождения *' />
-						<input className='input' placeholder='Город *' />
-						<input className='input' placeholder='Ник в телеграм' />
+					<form
+						className='contact-card'
+						onSubmit={async e => {
+							e.preventDefault()
+
+							if (!pdConsent) {
+								alert('Нужно согласие на обработку персональных данных')
+								return
+							}
+
+							// простая проверка обязательных
+							if (!fullName.trim()) return alert('Заполни поле "Имя и фамилия"')
+							if (!phone.trim()) return alert('Заполни поле "Номер телефона"')
+							if (!birthDate.trim())
+								return alert('Заполни поле "Дата рождения"')
+							if (!city.trim()) return alert('Заполни поле "Город"')
+							if (!pdConsent)
+								return alert('Нужно согласие на обработку персональных данных')
+
+							try {
+								setSending(true)
+
+								const res = await fetch('/api/leads', {
+									method: 'POST',
+									headers: { 'Content-Type': 'application/json' },
+									body: JSON.stringify({
+										full_name: fullName.trim(),
+										phone: phone.trim(),
+										birth_date: birthDate.trim(),
+										city: city.trim(),
+										telegram: telegram.trim() || null,
+										consent_personal: pdConsent,
+										consent_marketing: marketingConsent,
+									}),
+								})
+
+								const data = await res.json().catch(() => ({}))
+
+								if (!res.ok || !data?.success) {
+									alert(data?.message || 'Не удалось отправить заявку')
+									return
+								}
+
+								alert('Заявка отправлена!')
+
+								// очистим форму
+								setFullName('')
+								setPhone('')
+								setBirthDate('')
+								setCity('')
+								setTelegram('')
+								setPdConsent(false)
+								setMarketingConsent(false)
+							} catch (err) {
+								console.error(err)
+								alert('Ошибка сети')
+							} finally {
+								setSending(false)
+							}
+						}}
+					>
+						<input
+							className='input'
+							placeholder='Имя и фамилия *'
+							value={fullName}
+							onChange={e => setFullName(e.target.value)}
+						/>
+
+						<input
+							className='input'
+							placeholder='Номер телефона *'
+							value={phone}
+							onChange={e => setPhone(e.target.value)}
+						/>
+
+						<input
+							className='input'
+							type='date'
+							value={birthDate ?? ''}
+							onChange={e => setBirthDate(e.target.value)}
+						/>
+
+						<input
+							className='input'
+							placeholder='Город *'
+							value={city}
+							onChange={e => setCity(e.target.value)}
+						/>
+
+						<input
+							className='input'
+							placeholder='Ник в телеграм'
+							value={telegram}
+							onChange={e => setTelegram(e.target.value)}
+						/>
+
 						<div className='check-cont'>
 							<label className='check'>
-								<input type='checkbox' />
-								<span>Даю согласие на обработку персональных данных</span>
+								<input
+									type='checkbox'
+									checked={pdConsent}
+									onChange={e => setPdConsent(e.target.checked)}
+								/>
+								<span>
+									Даю согласие на{' '}
+									<a
+										href='/docs/pd-consent.pdf'
+										target='_blank'
+										rel='noreferrer'
+									>
+										обработку персональных данных
+									</a>
+								</span>
 							</label>
 
 							<label className='check'>
-								<input type='checkbox' />
+								<input
+									type='checkbox'
+									checked={marketingConsent}
+									onChange={e => setMarketingConsent(e.target.checked)}
+								/>
 								<span>Даю согласие на получение информации и напоминаний</span>
 							</label>
 						</div>
-						<button className='contact-button'>Отправить заявку</button>
+						<button
+							className='contact-button'
+							disabled={sending}
+							type='submit'
+						>
+							{sending ? 'Отправка...' : 'Отправить заявку'}
+						</button>
 					</form>
 
 					<footer className='footer-card'>

@@ -1,0 +1,313 @@
+.tedit{
+  min-height: 100vh;
+  background:#fff;
+  display:flex;
+  justify-content:center;
+  padding: 34px 16px 60px;
+}
+
+.tedit__wrap{
+  width:100%;
+  max-width: 860px;
+  text-align:center;
+}
+
+.tedit__title{
+  margin: 100px 0 65px;
+  font-size: 60px;
+  font-weight: 700;
+}
+
+.tedit__form{
+  text-align:left;
+}
+
+/* ====== fields like in mock ====== */
+.tedit-field{
+  margin: 25px auto;
+  max-width: 520px;
+}
+
+.tedit-field__label{
+  font-size: 15px;
+  margin: 0 0 15px;
+}
+
+.tedit-input,
+.tedit-textarea{
+  background: #F8F1C9 !important;
+  border-radius: 12px !important;
+  padding: 14px 16px !important;
+  box-shadow: none !important;
+}
+
+.tedit-textarea{
+  padding: 14px 16px !important;
+}
+
+.tedit-input input{
+  background: transparent !important;
+  text-align: left;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.tedit-textarea textarea{
+  background: transparent !important;
+  font-size: 15px;
+  font-weight: 500;
+  resize: vertical;
+}
+
+.tedit-field__hint{
+  margin-top: 15px;
+  font-size: 13px;
+  color: #797979;
+}
+
+/* ===== upload block ===== */
+.tedit-upload{
+  margin: 26px auto 10px;
+  max-width: 520px;
+}
+
+.tedit-upload__label{
+  font-size: 18px;
+  font-weight: 500;
+  margin: 0 0 15px;
+}
+
+.tedit-upload__row{
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+.tedit-upload__drop{
+  background: #F8F1C9;
+  border-radius: 16px;
+  width: 260px;
+  height: 124px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.tedit-upload__btn{
+  width: 100%;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  padding: 16px 12px;
+  border-radius: 14px;
+  display:flex;
+  flex-direction: column;
+  align-items:center;
+  gap: 10px;
+  color: #797979;
+  font-weight: 500;
+  font-size: 13px;
+  text-align:center;
+}
+
+.tedit-upload__btn:disabled{
+  opacity: .6;
+  cursor: not-allowed;
+}
+
+.tedit-upload__icon{
+  font-size: 18px;
+}
+
+.tedit-upload__note{
+  padding-top: 6px;
+}
+
+.tedit-upload__noteTitle{
+  font-size: 13px;
+  color: #797979;
+}
+
+.tedit-upload__noteText{
+  font-size: 13px;
+  color: #797979;
+  line-height: 1.35;
+}
+
+.tedit-upload__current{
+  margin-top: 10px;
+  font-size: 12px;
+  color: rgba(0,0,0,.65);
+}
+
+.tedit-upload__current a{
+  color: rgba(0,0,0,.8);
+  text-decoration: underline;
+}
+
+.tedit-linkbtn{
+  margin-top: 8px;
+  border: 0;
+  background: transparent;
+  padding: 10px;
+  cursor: pointer;
+  text-decoration: underline;
+  font-weight: 600;
+}
+
+/* ===== mini controls ===== */
+.tedit-mini{
+  margin: 18px auto 0;
+  max-width: 520px;
+  display:flex;
+  gap: 18px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.tedit-mini__item{
+  display:none;
+  gap: 10px;
+  align-items:center;
+}
+
+.tedit-mini__label{
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(0,0,0,.6);
+}
+
+/* ===== targets ===== */
+.tedit-targets{
+  margin: 26px auto 0;
+  max-width: 760px;
+  padding-top: 10px;
+}
+
+.tedit-targets__head{
+  display:flex;
+  align-items:center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.tedit-targets__title{
+  font-size: 16px;
+  font-weight: 700;
+  color: rgba(0,0,0,.8);
+}
+
+.tedit-targets__meta{
+  margin-top: 10px;
+  font-size: 12px;
+  opacity: .75;
+}
+
+.tedit-targets__buttons{
+  margin-top: 12px;
+  display:flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.tedit-pill{
+  border: 1px solid rgba(0,0,0,.35);
+  background: transparent;
+  border-radius: 999px;
+  padding: 10px 16px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.tedit-pill:disabled{
+  opacity: .6;
+  cursor: not-allowed;
+}
+
+.tedit-table{
+  margin-top: 12px;
+  background: #fff;
+  border: 1px solid rgba(0,0,0,.08);
+  border-radius: 16px;
+  padding: 10px;
+}
+
+/* soften AntD table */
+.tedit-table .ant-table{
+  border-radius: 12px;
+}
+.tedit-table .ant-table-thead > tr > th{
+  background: rgba(248,241,201,.55);
+  font-weight: 700;
+}
+.tedit-table .ant-pagination{
+  margin: 10px 6px 0;
+}
+
+.tedit-targets__hint{
+  margin-top: 10px;
+  font-size: 12px;
+  opacity: .65;
+}
+
+/* ===== actions ===== */
+.tedit-actions{
+  margin: 26px auto 0;
+  max-width: 520px;
+  display:flex;
+  gap: 16px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.tedit-btn{
+  border: 1px solid rgba(0,0,0,.45);
+  background: transparent;
+  border-radius: 999px;
+  padding: 14px 22px;
+  font-weight: 700;
+  cursor:pointer;
+  min-width: 220px;
+  text-align:center;
+}
+
+.tedit-btn--primary{
+  background: #fff;
+}
+
+.tedit-btn:disabled{
+  opacity: .6;
+  cursor: not-allowed;
+}
+
+/* ===== responsive ===== */
+@media (max-width: 920px){
+  .tedit__title{ font-size: 46px; }
+}
+
+@media (max-width: 640px){
+  .tedit{ padding: 24px 12px 44px; }
+  .tedit__title{ font-size: 34px; }
+
+  .tedit-field,
+  .tedit-upload,
+  .tedit-mini,
+  .tedit-actions{
+    max-width: 100%;
+  }
+
+  .tedit-upload__row{
+    grid-template-columns: 1fr;
+  }
+
+  .tedit-btn{
+    min-width: 100%;
+  }
+
+  .tedit-targets__head{
+    justify-content: center;
+    text-align:center;
+  }
+}

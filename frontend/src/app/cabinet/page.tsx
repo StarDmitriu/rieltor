@@ -132,6 +132,13 @@ export default function CabinetPage() {
 				</div>
 			</div>
 
+			<TelegramConnect userId={user.id} />
+
+			{/* ✅ WhatsApp */}
+			<div style={{ marginTop: 16 }}>
+				<WhatsappConnectBlock userId={user.id} />
+			</div>
+
 			<div className='groups'>
 				<h2 className='groups-title'>
 					Выберите группы, в которые отправится сообщение
@@ -156,9 +163,7 @@ export default function CabinetPage() {
 				<h2 className='link-title'>Реферальная ссылка</h2>
 
 				{!user.referral_code ? (
-					<p className='link-text'>
-						Реферальный код ещё не создан. 
-					</p>
+					<p className='link-text'>Реферальный код ещё не создан.</p>
 				) : (
 					(() => {
 						const link =
@@ -203,18 +208,11 @@ export default function CabinetPage() {
 				onCreated={url => setUser(u => (u ? { ...u, gsheet_url: url } : u))}
 			/>*/}
 
-			<TelegramConnect userId={user.id} />
-
 			{/* ✅ синк шаблонов */}
 			{/*<TemplatesSyncBlock userId={user.id} />*/}
 
 			{/* ✅ рассылка + переход на прогресс */}
 			<CampaignBlock />
-
-			{/* ✅ WhatsApp */}
-			<div style={{ marginTop: 16 }}>
-				<WhatsappConnectBlock userId={user.id} />
-			</div>
 		</div>
 	)
 }

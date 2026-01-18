@@ -3,6 +3,16 @@
 import { Suspense, useState } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import Cookies from 'js-cookie'
+import './page.css'
+
+function maskPhone(p: string) {
+	if (!p) return ''
+	// простая маска: оставим + и последние 2-3 символа, остальное заменим
+	const s = p.trim()
+	if (s.length <= 4) return s
+	const tail = s.slice(-3)
+	return s.slice(0, 2) + ' XXX XXX-XX-' + tail
+}
 
 function CodeInner() {
 	const params = useSearchParams()
@@ -16,14 +26,14 @@ function CodeInner() {
 	const [resendLoading, setResendLoading] = useState(false)
 
 	const verify = async () => {
-		if (!code) {
+		if (!code.trim()) {
 			alert('Введите код')
 			return
 		}
 
 		setLoading(true)
 		try {
-			let body: any = { phone, code }
+			let body: any = { phone, code: code.trim() }
 
 			if (mode === 'register' && typeof window !== 'undefined') {
 				const raw = sessionStorage.getItem('registerProfile')
@@ -43,11 +53,10 @@ function CodeInner() {
 				body: JSON.stringify(body),
 			})
 
-			const data = await res.json()
-			console.log('POST /auth/verify-code:', data)
+			const data = await res.json().catch(() => ({}))
 
-			if (!data.success) {
-				if (data.message === 'user_not_found' && mode === 'login') {
+			if (!res.ok || !data?.success) {
+				if (data?.message === 'user_not_found' && mode === 'login') {
 					const go = confirm(
 						'Пользователь с таким номером не найден. Зарегистрироваться?'
 					)
@@ -60,7 +69,7 @@ function CodeInner() {
 					return
 				}
 
-				alert(data.message || 'Ошибка при проверке кода')
+				alert(data?.message || 'Ошибка при проверке кода')
 				return
 			}
 
@@ -92,11 +101,10 @@ function CodeInner() {
 				body: JSON.stringify({ phone }),
 			})
 
-			const data = await res.json()
-			console.log('POST /auth/send-code:', data)
+			const data = await res.json().catch(() => ({}))
 
-			if (!data.success) {
-				alert(data.message || 'Не удалось отправить код')
+			if (!res.ok || !data?.success) {
+				alert(data?.message || 'Не удалось отправить код')
 				return
 			}
 
@@ -110,33 +118,49 @@ function CodeInner() {
 	}
 
 	return (
-		<div style={{ padding: 24 }}>
-			<h2>
-				Введите код, отправленный на {phone}{' '}
-				{mode === 'register' ? '(регистрация)' : '(вход)'}
-			</h2>
+		<div className='auth'>
+			<div className='auth__wrap'>
+				<h1 className='auth__title'>Подтвердите вход</h1>
 
-			<div style={{ marginTop: 12 }}>
-				<input
-					placeholder='Код из SMS'
-					value={code}
-					onChange={e => setCode(e.target.value)}
-					style={{ padding: 10, width: 160, marginRight: 8 }}
-				/>
+				<div className='auth__subtitle'>
+					Мы отправили код подтверждения
+					<br />
+					на номер {phone}
+				</div>
 
-				<button onClick={verify} disabled={loading} style={{ padding: 10 }}>
-					{loading ? 'Проверяем...' : 'Подтвердить'}
-				</button>
-			</div>
+				<div className='auth-card'>
+					<input
+						className='auth-card__input'
+						placeholder='Введите 4-значный код'
+						value={code}
+						onChange={e => setCode(e.target.value)}
+						inputMode='numeric'
+						autoComplete='one-time-code'
+						maxLength={6}
+					/>
 
-			<div style={{ marginTop: 20 }}>
-				<button
-					onClick={resendCode}
-					disabled={resendLoading}
-					style={{ padding: 10 }}
-				>
-					{resendLoading ? 'Отправляем...' : 'Отправить код повторно'}
-				</button>
+					<button
+						className='auth-btn auth-card__button'
+						onClick={verify}
+						disabled={loading}
+						type='button'
+					>
+						{loading ? 'Проверяем...' : 'Введите 4-значный код'}
+					</button>
+				</div>
+
+				<div className='auth-card auth-card--secondary'>
+					<div className='auth__belowTitle'>Не пришёл код?</div>
+
+					<button
+						className='auth-btn auth-card__button'
+						onClick={resendCode}
+						disabled={resendLoading}
+						type='button'
+					>
+						{resendLoading ? 'Отправляем...' : 'Отправить ещё раз'}
+					</button>
+				</div>
 			</div>
 		</div>
 	)
@@ -144,7 +168,7 @@ function CodeInner() {
 
 export default function CodePage() {
 	return (
-		<Suspense fallback={<div style={{ padding: 24 }}>Загрузка...</div>}>
+		<Suspense fallback={<div className='auth'>Загрузка...</div>}>
 			<CodeInner />
 		</Suspense>
 	)

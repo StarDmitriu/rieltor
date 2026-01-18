@@ -2,6 +2,7 @@
 import './TelegramConnect.css'
 //frontend/src/components/TelegramConnect.tsx
 import { useEffect, useRef, useState } from 'react'
+import { TelegramLinkingSteps } from './TelegramLinkingSteps'
 
 type TgStatus =
 	| 'not_connected'
@@ -72,11 +73,23 @@ export function TelegramConnect({ userId }: { userId: string }) {
 		setCode('')
 		setPassword('')
 		try {
-			await fetch(`${backendUrl}/telegram/start`, {
+			const res = await fetch(`${backendUrl}/telegram/start`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ userId }),
 			})
+			const data = await res.json().catch(() => ({}))
+
+			if (!data?.success) {
+				if (data?.message === 'tg_flood_wait') {
+					setErrorText(`Слишком часто. Подождите ${data?.seconds ?? 30} сек.`)
+				} else {
+					setErrorText(data?.message || 'Не удалось начать подключение')
+				}
+				setLoading(false)
+				return
+			}
+
 		} catch {
 			setErrorText('Не удалось начать подключение. Проверь бэкенд.')
 			setLoading(false)
@@ -185,6 +198,10 @@ export function TelegramConnect({ userId }: { userId: string }) {
 		return (
 			<div className='telegram'>
 				<h2 className='telegram-title'>Telegram</h2>
+
+				<div className='instruction '>
+					<TelegramLinkingSteps />
+				</div>
 
 				<div style={{ marginBottom: 8 }}>
 					<strong>Статус:</strong> {rusStatus}

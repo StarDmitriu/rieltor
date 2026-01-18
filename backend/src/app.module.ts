@@ -13,6 +13,7 @@ import { SheetsModule } from './sheets/sheets.module';
 import { TelegramModule } from './telegram/telegram.module';
 import { AdminModule } from './admin/admin.module';
 import { PaymentsModule } from './payments/payments.module';
+import { LeadsModule } from './leads/leads.module'
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { PaymentsModule } from './payments/payments.module';
     TelegramModule,
     AdminModule,
     PaymentsModule,
+    LeadsModule,
   ],
   controllers: [AppController],
   providers: [AppService, SmsService],

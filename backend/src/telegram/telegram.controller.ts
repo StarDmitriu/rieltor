@@ -15,6 +15,7 @@ export class TelegramController {
   // старт: отправить код на номер (номер берём из users.phone)
   @Post('start')
   async start(@Body('userId') userId: string) {
+    console.log('[TG] /telegram/start userId=', userId);
     if (!userId) return { success: false, message: 'userId is required' };
     return this.telegram.startAuth(userId);
   }

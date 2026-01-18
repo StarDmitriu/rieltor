@@ -1,13 +1,11 @@
 'use client'
 //frontend/src/app/dashboard/templates/page.tsx
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Cookies from 'js-cookie'
-import { Button, Space, Table, Tag, message, Popconfirm } from 'antd'
-import type { ColumnsType } from 'antd/es/table'
+import { message, Popconfirm } from 'antd'
 import { useRouter } from 'next/navigation'
 import { apiGet, apiPost } from '@/lib/api'
-
-
+import './page.css'
 
 type TemplateRow = {
 	id: string
@@ -20,8 +18,7 @@ type TemplateRow = {
 	updated_at: string
 }
 
-const BACKEND_URL =
-	process.env.NEXT_PUBLIC_BACKEND_URL || '/api'
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || '/api'
 
 export default function TemplatesPage() {
 	const router = useRouter()
@@ -36,7 +33,6 @@ export default function TemplatesPage() {
 			router.push('/auth/phone')
 			return
 		}
-
 		try {
 			const res = await fetch(`${BACKEND_URL}/auth/me`, {
 				headers: { Authorization: `Bearer ${token}` },
@@ -84,126 +80,133 @@ export default function TemplatesPage() {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [userId])
 
-	const columns: ColumnsType<TemplateRow> = [
-		{
-			title: 'Вкл',
-			dataIndex: 'enabled',
-			key: 'enabled',
-			width: 70,
-			render: v => (v ? <Tag color='green'>ON</Tag> : <Tag>OFF</Tag>),
-		},
-		{ title: 'Order', dataIndex: 'order', key: 'order', width: 80 },
-		{
-			title: 'Title',
-			dataIndex: 'title',
-			key: 'title',
-			render: v => v || <span style={{ opacity: 0.6 }}>—</span>,
-		},
-		{
-			title: 'Text',
-			dataIndex: 'text',
-			key: 'text',
-			render: v =>
-				v ? (
-					<span>
-						{String(v).slice(0, 120)}
-						{String(v).length > 120 ? '…' : ''}
-					</span>
-				) : (
-					<span style={{ opacity: 0.6 }}>—</span>
-				),
-		},
-		{
-			title: 'Media',
-			dataIndex: 'media_url',
-			key: 'media_url',
-			render: v =>
-				v ? (
-					<a href={v} target='_blank' rel='noreferrer'>
-						открыть
-					</a>
-				) : (
-					<span style={{ opacity: 0.6 }}>—</span>
-				),
-		},
-		{
-			title: 'Updated',
-			dataIndex: 'updated_at',
-			key: 'updated_at',
-			width: 190,
-			render: v => (v ? new Date(v).toLocaleString() : '—'),
-		},
-		{
-			title: 'Действия',
-			key: 'actions',
-			width: 220,
-			render: (_: any, row: TemplateRow) => (
-				<Space>
-					<Button
-						size='small'
-						onClick={() => router.push(`/dashboard/templates/${row.id}`)}
-					>
-						Редактировать
-					</Button>
-
-					<Popconfirm
-						title='Удалить шаблон?'
-						description='Это действие нельзя отменить.'
-						okText='Удалить'
-						cancelText='Отмена'
-						onConfirm={async () => {
-							if (!userId) return message.error('Нет userId')
-							const res: any = await apiPost('/templates/delete', {
-								userId,
-								templateId: row.id,
-							})
-							if (!res?.success) {
-								message.error(`Ошибка удаления: ${res?.message || 'unknown'}`)
-								return
-							}
-							message.success('Шаблон удалён')
-							load()
-						}}
-					>
-						<Button size='small' danger>
-							Удалить
-						</Button>
-					</Popconfirm>
-				</Space>
-			),
-		},
-	]
+	const sorted = useMemo(() => {
+		return [...rows].sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+	}, [rows])
 
 	return (
-		<div style={{ padding: 24 }}>
-			<h1>Шаблоны</h1>
+		<div className='tpl'>
+			<div className='tpl__wrap'>
+				<h1 className='tpl__title'>Ваши шаблоны</h1>
 
-			<div style={{ marginBottom: 12, opacity: 0.75 }}>
-				userId: <code>{userId || '—'}</code>
+				<div className='tpl__topbar'>
+					<button
+						className='tpl-btn tpl-btn--primary'
+						onClick={() => router.push('/dashboard/templates/new')}
+					>
+						Создать шаблон
+					</button>
+
+					<button className='tpl-btn' onClick={() => load()} disabled={loading}>
+						{loading ? 'Обновляем…' : 'Обновить'}
+					</button>
+
+					<button className='tpl-btn' onClick={() => router.push('/cabinet')}>
+						Назад
+					</button>
+
+				</div>
+
+				{sorted.length === 0 ? (
+					<div className='tpl-empty'>
+						<div className='tpl-empty__title'>Шаблонов пока нет</div>
+						<div className='tpl-empty__text'>
+							Нажми «Создать шаблон», чтобы добавить первый.
+						</div>
+					</div>
+				) : (
+					<div className='tpl__list'>
+						{sorted.map(row => (
+							<div className='tpl-row' key={row.id}>
+								<div className='tpl-card'>
+									<div className='tpl-card__title'>
+										{row.title?.trim() ? row.title : 'Название шаблона'}
+									</div>
+
+									<div className='tpl-card__textBox'>
+										{row.text?.trim() ? row.text : 'Текст шаблона'}
+									</div>
+
+									<div className='tpl-card__badges'>
+										<span className={`tpl-badge ${row.enabled ? 'on' : 'off'}`}>
+											{row.enabled ? 'ON' : 'OFF'}
+										</span>
+										<span className='tpl-badge neutral'>
+											Order: {row.order}
+										</span>
+										<span className='tpl-badge neutral'>
+											Обновлён:{' '}
+											{row.updated_at
+												? new Date(row.updated_at).toLocaleString()
+												: '—'}
+										</span>
+										{row.media_url ? (
+											<a
+												className='tpl-link'
+												href={row.media_url}
+												target='_blank'
+												rel='noreferrer'
+											>
+												Медиа: открыть
+											</a>
+										) : null}
+									</div>
+								</div>
+
+								<div className='tpl-actions'>
+									<div className='tpl-action'>
+										<button
+											className='tpl-btn tpl-btn--wide'
+											onClick={() =>
+												router.push(`/dashboard/templates/${row.id}`)
+											}
+										>
+											Редактировать
+										</button>
+										<div className='tpl-action__hint'>
+											Вы можете отредактировать Ваш шаблон
+										</div>
+									</div>
+
+
+									{/* архива нет — вместо него сделаем "Удалить" */}
+									<div className='tpl-action'>
+										<Popconfirm
+											title='Удалить шаблон?'
+											description='Это действие нельзя отменить.'
+											okText='Удалить'
+											cancelText='Отмена'
+											onConfirm={async () => {
+												if (!userId) return message.error('Нет userId')
+												const res: any = await apiPost('/templates/delete', {
+													userId,
+													templateId: row.id,
+												})
+												if (!res?.success) {
+													message.error(
+														`Ошибка удаления: ${res?.message || 'unknown'}`
+													)
+													return
+												}
+												message.success('Шаблон удалён')
+												load()
+											}}
+										>
+											<button className='tpl-btn tpl-btn--wide tpl-btn--danger'>
+												Удалить
+											</button>
+										</Popconfirm>
+
+										<div className='tpl-action__hint'>
+											Удалите шаблон, если он больше не актуален
+										</div>
+									</div>
+								</div>
+							</div>
+						))}
+					</div>
+				)}
 			</div>
-
-			<Space wrap style={{ marginBottom: 12 }}>
-				<Button
-					type='primary'
-					onClick={() => router.push('/dashboard/templates/new')}
-				>
-					Создать шаблон
-				</Button>
-
-				<Button onClick={() => load()} loading={loading}>
-					Обновить
-				</Button>
-
-				<Button onClick={() => router.push('/cabinet')}>Назад</Button>
-			</Space>
-
-			<Table
-				rowKey='id'
-				columns={columns}
-				dataSource={rows}
-				loading={loading}
-				pagination={{ pageSize: 10 }}
-			/>
 		</div>
 	)
 }

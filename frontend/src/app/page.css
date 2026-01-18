@@ -54,7 +54,6 @@ a {
   width: 140px;
   height: auto;
 }
-.landing > * { position: relative; z-index: 1; } /* контент выше фона */
 
 
 /* Фон "домики" (подложка) */
@@ -129,6 +128,7 @@ a {
 	border-radius: var(--radius-xl);
 	padding: 60px 10px 160px 10px;
 	text-align: center;
+	position: relative;
 }
 
 .hero-title {
@@ -334,6 +334,10 @@ a {
 	gap: 10px;
 }
 
+.contact-card input{
+	font-weight: 500;
+}
+
 .contact-button{
 	max-width: 231px;
 	margin: 0 auto;
@@ -365,6 +369,10 @@ a {
   color: #333;
 }
 
+.check a{
+	font-weight: 700;
+}
+
 .check span{
   font-size: 10px;
   width: 287px;
@@ -380,16 +388,18 @@ a {
   cursor: pointer;
   margin-top: 2px;
   position: relative;
+  accent-color: #F3D400;
 }
+
 
 .check input[type="checkbox"]:checked::after {
   content: "";
   position: absolute;
   top: 0px;
-  left: 3px;
+  left: 4px;
   width: 4px;
   height: 8px;
-  border: solid #fff;
+  border: solid #000;
   border-width: 0 2px 2px 0;
   transform: rotate(45deg);
 }
@@ -534,6 +544,7 @@ a {
 	gap: 16px;
 	transform: translateX(12px);
 	transition: 250ms;
+	z-index: 1;
 }
 
 .mobile-menu.open .mobile-menu__panel {

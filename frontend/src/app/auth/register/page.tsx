@@ -2,6 +2,8 @@
 
 import { Suspense, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import Link from 'next/link'
+import './page.css'
 
 function RegisterInner() {
 	const router = useRouter()
@@ -12,20 +14,23 @@ function RegisterInner() {
 
 	const [fullName, setFullName] = useState('')
 	const [phone, setPhone] = useState(initialPhone)
-	const [gender, setGender] = useState('')
-	const [telegram, setTelegram] = useState('')
 	const [birthday, setBirthday] = useState('')
+	const [city, setCity] = useState('')
+	const [telegram, setTelegram] = useState('')
+
+	const [pdConsent, setPdConsent] = useState(false)
+	const [marketingConsent, setMarketingConsent] = useState(false)
+
 	const [loading, setLoading] = useState(false)
 
 	const sendCode = async () => {
-		if (!fullName.trim()) {
-			alert('Введите имя')
-			return
-		}
-		if (!phone.trim()) {
-			alert('Введите номер телефона')
-			return
-		}
+		// валидация как на лендинге
+		if (!fullName.trim()) return alert('Заполни поле "Имя и фамилия"')
+		if (!phone.trim()) return alert('Заполни поле "Номер телефона"')
+		if (!birthday.trim()) return alert('Заполни поле "Дата рождения"')
+		if (!city.trim()) return alert('Заполни поле "Город"')
+		if (!pdConsent)
+			return alert('Нужно согласие на обработку персональных данных')
 
 		setLoading(true)
 		try {
@@ -33,33 +38,35 @@ function RegisterInner() {
 			const res = await fetch('/api/auth/send-code', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ phone }),
+				body: JSON.stringify({ phone: phone.trim() }),
 			})
 
-			const data = await res.json()
-			console.log('POST /auth/send-code (register):', data)
+			const data = await res.json().catch(() => ({}))
 
-			if (!data.success) {
-				alert(data.message || 'Ошибка при отправке кода')
+			if (!res.ok || !data?.success) {
+				alert(data?.message || 'Ошибка при отправке кода')
 				return
 			}
 
-			// 2) сохраняем профиль
+			// 2) сохраняем профиль (его подхватит verify-code в /auth/code)
 			const profile = {
 				full_name: fullName.trim(),
-				gender: gender || null,
-				telegram: telegram || null,
-				birthday: birthday || null,
+				telegram: telegram.trim() || null,
+				birthday: birthday.trim() || null,
+				city: city.trim(),
+				consent_personal: pdConsent,
+				consent_marketing: marketingConsent,
+				ref: ref || null,
 			}
 
 			if (typeof window !== 'undefined') {
 				sessionStorage.setItem('registerProfile', JSON.stringify(profile))
 			}
 
-			// 3) идём на ввод кода + прокидываем ref
+			// 3) идём на ввод кода
 			router.push(
 				`/auth/code?phone=${encodeURIComponent(
-					phone
+					phone.trim()
 				)}&mode=register&ref=${encodeURIComponent(ref)}`
 			)
 		} catch (err) {
@@ -71,100 +78,91 @@ function RegisterInner() {
 	}
 
 	return (
-		<div style={{ padding: 24, maxWidth: 500 }}>
-			<h1>Регистрация</h1>
-			<p>Заполните данные и подтвердите номер телефона по SMS-коду.</p>
+		<div className='auth'>
+			<div className='auth__wrap'>
+				<h1 className='auth__title'>Регистрация пользователя</h1>
 
-			<div style={{ marginTop: 12 }}>
-				<label>
-					Имя:
-					<br />
+				<div className='auth-card'>
 					<input
+						className='auth-card__input'
+						placeholder='Имя и фамилия *'
 						value={fullName}
 						onChange={e => setFullName(e.target.value)}
-						style={{ width: '100%', padding: 8, marginTop: 4 }}
 					/>
-				</label>
-			</div>
 
-			<div style={{ marginTop: 12 }}>
-				<label>
-					Номер телефона:
-					<br />
 					<input
+						className='auth-card__input'
+						placeholder='Номер телефона *'
 						value={phone}
 						onChange={e => setPhone(e.target.value)}
-						style={{ width: '100%', padding: 8, marginTop: 4 }}
 					/>
-				</label>
-			</div>
 
-			<div style={{ marginTop: 12 }}>
-				<label>
-					Пол:
-					<br />
-					<select
-						value={gender}
-						onChange={e => setGender(e.target.value)}
-						style={{ width: '100%', padding: 8, marginTop: 4 }}
-					>
-						<option value=''>Не указан</option>
-						<option value='m'>Мужской</option>
-						<option value='f'>Женский</option>
-					</select>
-				</label>
-			</div>
-
-			<div style={{ marginTop: 12 }}>
-				<label>
-					Telegram:
-					<br />
 					<input
+						className='auth-card__input'
+						type='date'
+						value={birthday ?? ''}
+						onChange={e => setBirthday(e.target.value)}
+					/>
+
+					<input
+						className='auth-card__input'
+						placeholder='Город *'
+						value={city}
+						onChange={e => setCity(e.target.value)}
+					/>
+
+					<input
+						className='auth-card__input'
+						placeholder='Ник в телеграм'
 						value={telegram}
 						onChange={e => setTelegram(e.target.value)}
-						placeholder='@username'
-						style={{ width: '100%', padding: 8, marginTop: 4 }}
 					/>
-				</label>
-			</div>
 
-			<div style={{ marginTop: 12 }}>
-				<label>
-					Дата рождения:
-					<br />
-					<input
-						type='date'
-						value={birthday}
-						onChange={e => setBirthday(e.target.value)}
-						style={{ padding: 8, marginTop: 4 }}
-					/>
-				</label>
-			</div>
+					<div className='auth-checks'>
+						<label className='auth-check'>
+							<input
+								type='checkbox'
+								checked={pdConsent}
+								onChange={e => setPdConsent(e.target.checked)}
+							/>
+							<span>
+								Даю согласие на{' '}
+								<a href='/docs/pd-consent.pdf' target='_blank' rel='noreferrer'>
+									обработку персональных данных
+								</a>
+							</span>
+						</label>
 
-			<button
-				onClick={sendCode}
-				disabled={loading}
-				style={{ marginTop: 16, padding: '10px 16px' }}
-			>
-				{loading ? 'Отправляем код...' : 'Получить код и продолжить'}
-			</button>
+						<label className='auth-check'>
+							<input
+								type='checkbox'
+								checked={marketingConsent}
+								onChange={e => setMarketingConsent(e.target.checked)}
+							/>
+							<span>Даю согласие на получение информации и напоминаний</span>
+						</label>
+					</div>
 
-			<div style={{ marginTop: 16 }}>
-				Уже есть аккаунт?{' '}
-				<button
-					type='button'
-					onClick={() => router.push('/auth/phone')}
-					style={{
-						border: 'none',
-						background: 'none',
-						color: 'blue',
-						textDecoration: 'underline',
-						cursor: 'pointer',
-						padding: 0,
-					}}
-				>
-					Войти
-				</button>
+					<button
+						className='auth-btn auth-card__button'
+						onClick={sendCode}
+						disabled={loading || !pdConsent}
+						type='button'
+					>
+						{loading ? 'Отправляем код...' : 'Получить код и продолжить'}
+					</button>
+				</div>
+
+				<div className='auth__below'>
+					<div className='auth__belowTitle'>Уже есть аккаунт?</div>
+					<button
+						type='button'
+						className='auth-btn auth-btn--ghost'
+						onClick={() => router.push('/auth/phone')}
+					>
+						Войти
+					</button>
+				</div>
 			</div>
 		</div>
 	)
@@ -172,7 +170,7 @@ function RegisterInner() {
 
 export default function RegisterPage() {
 	return (
-		<Suspense fallback={<div style={{ padding: 24 }}>Загрузка...</div>}>
+		<Suspense fallback={<div className='auth'>Загрузка...</div>}>
 			<RegisterInner />
 		</Suspense>
 	)

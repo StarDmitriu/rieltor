@@ -119,7 +119,6 @@ export class ProdamusController {
     const expanded = this.prodamus.expandBracketKeys(rawBody);
 
     const dataToVerify = expanded?.submit ? expanded.submit : expanded;
-
     const ok = this.prodamus.verify(dataToVerify, signature);
 
     if (!ok) {
@@ -128,27 +127,27 @@ export class ProdamusController {
     }
 
     console.log('--- PRODAMUS WEBHOOK HIT ---');
-    console.log('headers:', req.headers);
-    console.log('body keys:', Object.keys(req.body || {}));
-    console.log('body:', req.body);
+    console.log('sign:', signature);
+    console.log('expanded keys:', Object.keys(expanded || {}));
+    console.log(
+      'order_num:',
+      expanded?.order_num,
+      'order_id:',
+      expanded?.order_id,
+    );
+    if (expanded?.submit)
+      console.log('submit keys:', Object.keys(expanded.submit));
 
 
     // По доке:
     // order_id = ID заказа в Prodamus
     // order_num = номер заказа на стороне магазина
     const orderNum = String(
-      expanded?.submit?.order_num ||
-        expanded?.order_num ||
-        expanded?.submit?.order_id || // на всякий случай
-        expanded?.order_id ||
-        '',
-    ).trim();
-
+      expanded?.order_num || expanded?.submit?.order_num || '',
+    ).trim(); // это наш internal id
     const prodamusOrderId = String(
-      expanded?.submit?.order_id || expanded?.order_id || '',
-    ).trim();
-
-
+      expanded?.order_id || expanded?.submit?.order_id || '',
+    ).trim(); // это их id
 
     const paymentStatus = String(expanded?.payment_status || '').trim(); // success | order_canceled | ...
     const sum = String(expanded?.sum || '').trim();

@@ -112,7 +112,7 @@ export default function HomePage() {
 						<p className='hero-subtitle'>
 							Автоматическая рассылка сообщений
 							<br />
-							по группам в WhatsApp
+							по группам в WhatsApp и Telegram
 						</p>
 
 						<a className='hero-button' href='#pricing'>
@@ -128,8 +128,8 @@ export default function HomePage() {
 
 					<p className='section-text'>
 						Сервис «ЧатРассылка» помогает Вам ежедневно публиковать объявления в
-						группы WhatsApp автоматически - без ручной рассылки, независимо от
-						работы интернета в городе
+						группы WhatsApp и Telegram автоматически - без ручной рассылки,
+						независимо от работы интернета в городе
 					</p>
 
 					<div className='stats'>
@@ -173,14 +173,15 @@ export default function HomePage() {
 							<div className='how-head'>
 								Подготовка аккаунта
 								<br />
-								WhatsApp
+								WhatsApp, Telegram
 							</div>
 							<p className='how-text'>
 								<span className='how-text__span'>
 									{' '}
 									Для эффективной рассылки
 								</span>{' '}
-								важно, чтобы Ваш аккаунт WhatsApp должен быть участником групп
+								важно, чтобы Ваш аккаунт WhatsApp, Telegram должен быть
+								участником групп
 							</p>
 							<p className='how-text'>
 								Если Вы не являетесь участником группы или Вы заблокированы в
@@ -193,9 +194,9 @@ export default function HomePage() {
 						<div className='how-card'>
 							<div className='how-num'>2</div>
 							<div className='how-head'>
-								Подключение Вашего
+								Подключение Ваших
 								<br />
-								аккаунта WhatsApp
+								аккаунтов WhatsApp и Telegram
 							</div>
 							<p className='how-text'>
 								После{' '}
@@ -205,7 +206,7 @@ export default function HomePage() {
 							</p>
 							<p className='how-text'>
 								Совершите вход в систему и выполните синхронизацию Ваших
-								WhatsApp
+								WhatsApp, Telegram
 							</p>
 							<p className='how-text'>
 								Мы автоматически загрузим группы, <br />в которых Вы состоите
@@ -221,7 +222,7 @@ export default function HomePage() {
 							</div>
 							<p className='how-text'>
 								После загрузки Ваших групп, Вам необходимо{' '}
-								<span className='how-text__span'>создать объявления</span>
+								<span className='how-text__span'>создать объявления </span>
 								для рассылки
 							</p>
 							<p className='how-text'>
@@ -278,7 +279,7 @@ export default function HomePage() {
 						</div>
 
 						<div className='trial-steps'>
-							<div className='trial-pill'>Подключайте WhatsApp</div>
+							<div className='trial-pill'>Подключайте WhatsApp и Telegram</div>
 							<div className='trial-arrow'>→</div>
 							<div className='trial-pill'>Создавайте шаблоны</div>
 							<div className='trial-arrow'>→</div>
@@ -288,7 +289,7 @@ export default function HomePage() {
 						<div className='trial-down'>↓</div>
 
 						<Link className='trial-main trial-pill ' href='/cabinet'>
-							Перейти к подключению WhatsApp
+							Перейти к подключению
 						</Link>
 					</div>
 				</div>
@@ -422,11 +423,7 @@ export default function HomePage() {
 								<span>Даю согласие на получение информации и напоминаний</span>
 							</label>
 						</div>
-						<button
-							className='contact-button'
-							disabled={sending}
-							type='submit'
-						>
+						<button className='contact-button' disabled={sending} type='submit'>
 							{sending ? 'Отправка...' : 'Отправить заявку'}
 						</button>
 					</form>

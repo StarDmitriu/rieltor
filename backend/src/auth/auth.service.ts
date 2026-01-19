@@ -12,6 +12,7 @@ type ProfileUpdate = {
   gender?: string;
   telegram?: string;
   birthday?: string | null;
+  city?: string | null;
 };
 
 type OtpRow = {
@@ -73,8 +74,19 @@ export class AuthService {
     let digits = raw.replace(/[^\d]/g, '');
     if (!digits) return '';
 
+    // RU: 8XXXXXXXXXX -> 7XXXXXXXXXX
     if (digits.length === 11 && digits.startsWith('8')) {
       digits = '7' + digits.slice(1);
+    }
+
+    // RU: 10 digits -> assume country code 7
+    if (digits.length === 10) {
+      digits = '7' + digits;
+    }
+
+    // BY: 9 digits -> assume country code 375
+    if (digits.length === 9) {
+      digits = '375' + digits;
     }
 
     return digits;
@@ -153,13 +165,14 @@ export class AuthService {
   }
 
   async updateProfile(userId: string, update: ProfileUpdate) {
-    const { full_name, gender, telegram, birthday } = update;
+    const { full_name, gender, telegram, birthday, city } = update;
 
     if (
       full_name === undefined &&
       gender === undefined &&
       telegram === undefined &&
-      birthday === undefined
+      birthday === undefined &&
+      city === undefined
     ) {
       return await this.getUserById(userId);
     }
@@ -171,6 +184,7 @@ export class AuthService {
         gender,
         telegram,
         birthday: birthday || null,
+        city: city || null,
       })
       .eq('id', userId)
       .select()

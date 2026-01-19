@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Cookies from 'js-cookie'
 import { useRouter } from 'next/navigation'
+import { useNotify } from '@/ui/notify/notify'
 
 const backendUrl =
 	process.env.NEXT_PUBLIC_BACKEND_URL || '/api'
@@ -75,6 +76,7 @@ export default function AdminPage() {
 	const [err, setErr] = useState<string | null>(null)
 	const [users, setUsers] = useState<UserRow[]>([])
 	const [q, setQ] = useState('')
+	const notify = useNotify()
 
 	useEffect(() => {
 		if (!token) {
@@ -211,7 +213,10 @@ export default function AdminPage() {
 			await reload()
 		} catch (e: any) {
 			console.error(e)
-			alert(e?.message || 'Не удалось изменить блокировку')
+			notify(e?.message || 'Не удалось изменить блокировку', {
+				type: 'error',
+				title: 'Ошибка',
+			})
 		} finally {
 			setBusyId(null)
 		}
@@ -224,7 +229,10 @@ export default function AdminPage() {
 			await reload()
 		} catch (e: any) {
 			console.error(e)
-			alert(e?.message || 'Не удалось выдать trial')
+			notify(e?.message || 'Не удалось выдать trial', {
+				type: 'error',
+				title: 'Ошибка',
+			})
 		} finally {
 			setBusyId(null)
 		}
@@ -237,7 +245,10 @@ export default function AdminPage() {
 			await reload()
 		} catch (e: any) {
 			console.error(e)
-			alert(e?.message || 'Не удалось продлить подписку')
+			notify(e?.message || 'Не удалось продлить подписку', {
+				type: 'error',
+				title: 'Ошибка',
+			})
 		} finally {
 			setBusyId(null)
 		}
@@ -250,7 +261,10 @@ export default function AdminPage() {
 			await reload()
 		} catch (e: any) {
 			console.error(e)
-			alert(e?.message || 'Не удалось уменьшить trial')
+			notify(e?.message || 'Не удалось уменьшить trial', {
+				type: 'error',
+				title: 'Ошибка',
+			})
 		} finally {
 			setBusyId(null)
 		}
@@ -263,7 +277,10 @@ export default function AdminPage() {
 			await reload()
 		} catch (e: any) {
 			console.error(e)
-			alert(e?.message || 'Не удалось уменьшить подписку')
+			notify(e?.message || 'Не удалось уменьшить подписку', {
+				type: 'error',
+				title: 'Ошибка',
+			})
 		} finally {
 			setBusyId(null)
 		}

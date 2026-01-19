@@ -16,7 +16,8 @@ export class AuthController {
   @Post('verify-code')
   @HttpCode(200)
   verify(@Body() body: any) {
-    const { phone, code, full_name, gender, telegram, birthday, ref } = body;
+    const { phone, code, full_name, gender, telegram, birthday, city, ref } =
+      body;
 
     return this.auth.verifyCode(
       phone,
@@ -26,6 +27,7 @@ export class AuthController {
         gender,
         telegram,
         birthday,
+        city,
       },
       ref,
     );
@@ -65,6 +67,7 @@ export class AuthController {
       gender?: string;
       telegram?: string;
       birthday?: string | null;
+      city?: string | null;
     },
   ) {
     const token = this.extractBearerToken(authHeader);

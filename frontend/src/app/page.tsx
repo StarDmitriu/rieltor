@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import './page.css'
+import { useNotify } from '@/ui/notify/notify'
 
 export default function HomePage() {
 	const [menuOpen, setMenuOpen] = useState(false)
@@ -18,6 +19,7 @@ export default function HomePage() {
 	const [marketingConsent, setMarketingConsent] = useState(false)
 
 	const [sending, setSending] = useState(false)
+	const notify = useNotify()
 
 
 	useEffect(() => {
@@ -305,18 +307,30 @@ export default function HomePage() {
 							e.preventDefault()
 
 							if (!pdConsent) {
-								alert('Нужно согласие на обработку персональных данных')
+								notify('Нужно согласие на обработку персональных данных', {
+									type: 'warning',
+								})
 								return
 							}
 
 							// простая проверка обязательных
-							if (!fullName.trim()) return alert('Заполни поле "Имя и фамилия"')
-							if (!phone.trim()) return alert('Заполни поле "Номер телефона"')
+							if (!fullName.trim()) return notify('Заполни поле "Имя и фамилия"', {
+									type: 'warning',
+								})
+							if (!phone.trim()) return notify('Заполни поле "Номер телефона"', {
+									type: 'warning',
+								})
 							if (!birthDate.trim())
-								return alert('Заполни поле "Дата рождения"')
-							if (!city.trim()) return alert('Заполни поле "Город"')
+								return notify('Заполни поле "Дата рождения"', {
+									type: 'warning',
+								})
+							if (!city.trim()) return notify('Заполни поле "Город"', {
+									type: 'warning',
+								})
 							if (!pdConsent)
-								return alert('Нужно согласие на обработку персональных данных')
+								return notify('Нужно согласие на обработку персональных данных', {
+									type: 'warning',
+								})
 
 							try {
 								setSending(true)
@@ -338,11 +352,16 @@ export default function HomePage() {
 								const data = await res.json().catch(() => ({}))
 
 								if (!res.ok || !data?.success) {
-									alert(data?.message || 'Не удалось отправить заявку')
+									notify(data?.message || 'Не удалось отправить заявку', {
+										type: 'error',
+										title : 'Ошибка'
+									})
 									return
 								}
 
-								alert('Заявка отправлена!')
+								notify('Заявка отправлена!', {
+									type: 'success',
+								})
 
 								// очистим форму
 								setFullName('')
@@ -354,7 +373,10 @@ export default function HomePage() {
 								setMarketingConsent(false)
 							} catch (err) {
 								console.error(err)
-								alert('Ошибка сети')
+								notify('Ошибка сети', {
+									type: 'error',
+									title: 'Ошибка',
+								})
 							} finally {
 								setSending(false)
 							}

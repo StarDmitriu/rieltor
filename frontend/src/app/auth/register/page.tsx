@@ -4,6 +4,7 @@ import { Suspense, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import './page.css'
+import { useNotify } from '@/ui/notify/notify'
 
 function RegisterInner() {
 	const router = useRouter()
@@ -22,15 +23,19 @@ function RegisterInner() {
 	const [marketingConsent, setMarketingConsent] = useState(false)
 
 	const [loading, setLoading] = useState(false)
+	const notify = useNotify()
 
 	const sendCode = async () => {
 		// валидация как на лендинге
-		if (!fullName.trim()) return alert('Заполни поле "Имя и фамилия"')
-		if (!phone.trim()) return alert('Заполни поле "Номер телефона"')
-		if (!birthday.trim()) return alert('Заполни поле "Дата рождения"')
-		if (!city.trim()) return alert('Заполни поле "Город"')
+		if (!fullName.trim()) return notify('Заполни поле "Имя и фамилия"', { type: "error", title: "Ошибка" });
+		if (!phone.trim()) return notify('Заполни поле "Номер телефона"', { type: "error", title: "Ошибка" });
+		if (!birthday.trim()) return notify('Заполни поле "Дата рождения"', { type: "error", title: "Ошибка" });
+		if (!city.trim()) return notify('Заполни поле "Город"', { type: "error", title: "Ошибка" });
 		if (!pdConsent)
-			return alert('Нужно согласие на обработку персональных данных')
+			return notify('Нужно согласие на обработку персональных данных', {
+				type: 'error',
+				title: 'Ошибка',
+			})
 
 		setLoading(true)
 		try {
@@ -44,7 +49,10 @@ function RegisterInner() {
 			const data = await res.json().catch(() => ({}))
 
 			if (!res.ok || !data?.success) {
-				alert(data?.message || 'Ошибка при отправке кода')
+				notify(data?.message || 'Ошибка при отправке кода', {
+					type: 'error',
+					title: 'Ошибка',
+				})
 				return
 			}
 
@@ -71,7 +79,10 @@ function RegisterInner() {
 			)
 		} catch (err) {
 			console.error(err)
-			alert('Ошибка сети, попробуйте ещё раз')
+			notify('Ошибка сети, попробуйте ещё раз', {
+				type: 'error',
+				title: 'Ошибка',
+			})
 		} finally {
 			setLoading(false)
 		}
@@ -146,7 +157,7 @@ function RegisterInner() {
 					<button
 						className='auth-btn auth-card__button'
 						onClick={sendCode}
-						disabled={loading || !pdConsent}
+						disabled={loading}
 						type='button'
 					>
 						{loading ? 'Отправляем код...' : 'Получить код и продолжить'}

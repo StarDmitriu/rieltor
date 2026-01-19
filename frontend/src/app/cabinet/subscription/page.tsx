@@ -5,6 +5,7 @@ import Cookies from 'js-cookie'
 import { useRouter } from 'next/navigation'
 import { apiPost } from '@/lib/api'
 import './page.css'
+import { useNotify } from '@/ui/notify/notify'
 
 const backendUrl =
 	process.env.NEXT_PUBLIC_BACKEND_URL || '/api'
@@ -14,6 +15,7 @@ export default function SubscriptionPage() {
 	const [loading, setLoading] = useState(true)
 	const [data, setData] = useState<any>(null)
 	const [busy, setBusy] = useState(false)
+	const notify = useNotify()
 
 	useEffect(() => {
 		const token = Cookies.get('token')
@@ -54,11 +56,14 @@ export default function SubscriptionPage() {
 			})
 			const json = await res.json()
 			if (!json.success) {
-				alert(json.message || 'Не удалось запустить тест')
+				notify(json.message || 'Не удалось запустить тест', {
+					type: 'error',
+					title: 'Ошибка',
+				})
 				return
 			}
 
-			alert('Пробный период активирован!')
+			notify('Пробный период активирован!', { type: 'success' })
 
 			const me = await fetch(`${backendUrl}/subscriptions/me`, {
 				headers: {
@@ -70,7 +75,7 @@ export default function SubscriptionPage() {
 			setData(await me.json())
 		} catch (e) {
 			console.error(e)
-			alert('Ошибка сети')
+			notify('Ошибка сети', { type: 'error', title: 'Ошибка' })
 		} finally {
 			setBusy(false)
 		}
@@ -141,7 +146,7 @@ export default function SubscriptionPage() {
 							<button
 								onClick={startTrial}
 								disabled={busy}
-								style={{ padding: 10 }}
+								className='trial-btn'
 							>
 								{busy ? 'Запускаем...' : 'Начать пробный период (3 дня)'}
 							</button>
@@ -153,13 +158,15 @@ export default function SubscriptionPage() {
 									try {
 										const res = await apiPost('/payments/prodamus/create', {})
 										if (!res?.success || !res?.payment_url) {
-											alert(res?.message || 'Не удалось создать оплату')
+											notify(res?.message || 'Не удалось создать оплату', {
+												type: 'error',
+											})
 											return
 										}
 										window.location.href = res.payment_url
 									} catch (e) {
 										console.error(e)
-										alert('Ошибка сети')
+										notify('Ошибка сети', { type: 'error', title: 'Ошибка' })
 									}
 								}}
 								style={{ padding: 10, marginLeft: 8 }}

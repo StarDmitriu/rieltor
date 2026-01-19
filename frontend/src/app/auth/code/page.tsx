@@ -4,6 +4,7 @@ import { Suspense, useState } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import Cookies from 'js-cookie'
 import './page.css'
+import { useNotify } from '@/ui/notify/notify'
 
 function maskPhone(p: string) {
 	if (!p) return ''
@@ -24,10 +25,11 @@ function CodeInner() {
 	const [code, setCode] = useState('')
 	const [loading, setLoading] = useState(false)
 	const [resendLoading, setResendLoading] = useState(false)
+	const notify = useNotify()
 
 	const verify = async () => {
 		if (!code.trim()) {
-			alert('Введите код')
+			notify('Введите код', { type: 'error'})
 			return
 		}
 
@@ -69,7 +71,10 @@ function CodeInner() {
 					return
 				}
 
-				alert(data?.message || 'Ошибка при проверке кода')
+				notify(data?.message || 'Ошибка при проверке кода', {
+					type: 'error',
+					title: 'Ошибка',
+				})
 				return
 			}
 
@@ -81,7 +86,10 @@ function CodeInner() {
 			router.push('/cabinet')
 		} catch (err) {
 			console.error(err)
-			alert('Ошибка сети, попробуйте ещё раз')
+			notify('Ошибка сети, попробуйте ещё раз', {
+				type: 'error',
+				title: 'Ошибка',
+			})
 		} finally {
 			setLoading(false)
 		}
@@ -89,7 +97,9 @@ function CodeInner() {
 
 	const resendCode = async () => {
 		if (!phone) {
-			alert('Телефон отсутствует')
+			notify('Телефон отсутствует', {
+				type: 'error',
+			})
 			return
 		}
 
@@ -104,14 +114,22 @@ function CodeInner() {
 			const data = await res.json().catch(() => ({}))
 
 			if (!res.ok || !data?.success) {
-				alert(data?.message || 'Не удалось отправить код')
+				notify(data?.message || 'Не удалось отправить код', {
+					type: 'error',
+					title: 'Ошибка',
+				})
 				return
 			}
 
-			alert('Код отправлен повторно!')
+			notify('Код отправлен повторно!', {
+				type: 'success',
+			})
 		} catch (err) {
 			console.error(err)
-			alert('Ошибка сети при повторной отправке')
+			notify('Ошибка сети при повторной отправке', {
+				type: 'error',
+				title: 'Ошибка',
+			})
 		} finally {
 			setResendLoading(false)
 		}
@@ -131,7 +149,7 @@ function CodeInner() {
 				<div className='auth-card'>
 					<input
 						className='auth-card__input'
-						placeholder='Введите 4-значный код'
+						placeholder='Введите 6-значный код'
 						value={code}
 						onChange={e => setCode(e.target.value)}
 						inputMode='numeric'
@@ -145,7 +163,7 @@ function CodeInner() {
 						disabled={loading}
 						type='button'
 					>
-						{loading ? 'Проверяем...' : 'Введите 4-значный код'}
+						{loading ? 'Проверяем...' : 'Введите 6-значный код'}
 					</button>
 				</div>
 

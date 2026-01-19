@@ -21,3 +21,93 @@ button:hover{
   background: #333;
   color: #Fff;
 }
+
+
+/* --- Toast notifications --- */
+:root {
+  --ntf-bg: rgba(20, 20, 20, 0.92);
+  --ntf-text: #fff;
+  --ntf-border: rgba(255, 255, 255, 0.12);
+  --ntf-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+
+  --ntf-success: #2ecc71;
+  --ntf-error: #ff5c5c;
+  --ntf-warning: #ffcc00;
+  --ntf-info: #66b3ff;
+}
+
+.ntf-stack {
+  position: fixed;
+  z-index: 9999;
+  right: 16px;
+  bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: min(420px, calc(100vw - 32px));
+}
+
+.ntf-toast {
+  display: grid;
+  grid-template-columns: 10px 1fr auto;
+  align-items: start;
+  gap: 12px;
+
+  padding: 12px 12px 12px 10px;
+  border-radius: 14px;
+  background: var(--ntf-bg);
+  color: var(--ntf-text);
+  border: 1px solid var(--ntf-border);
+  box-shadow: var(--ntf-shadow);
+  backdrop-filter: blur(10px);
+
+  animation: ntf-in 160ms ease-out;
+}
+
+.ntf-bar {
+  width: 10px;
+  height: 100%;
+  border-radius: 10px;
+  background: var(--ntf-info);
+}
+
+.ntf-toast[data-type="success"] .ntf-bar { background: var(--ntf-success); }
+.ntf-toast[data-type="error"] .ntf-bar { background: var(--ntf-error); }
+.ntf-toast[data-type="warning"] .ntf-bar { background: var(--ntf-warning); }
+.ntf-toast[data-type="info"] .ntf-bar { background: var(--ntf-info); }
+
+.ntf-title {
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 1.25;
+  margin: 0 0 2px;
+}
+
+.ntf-message {
+  font-size: 13px;
+  line-height: 1.35;
+  opacity: 0.92;
+  margin: 0;
+  word-break: break-word;
+}
+
+.ntf-close {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.75);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 10px;
+  line-height: 1;
+}
+
+.ntf-close:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+@keyframes ntf-in {
+  from { transform: translateY(10px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}

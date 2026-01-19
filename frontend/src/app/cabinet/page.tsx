@@ -10,6 +10,7 @@ import { TemplatesSyncBlock } from '@/components/TemplatesSyncBlock'
 import { CampaignBlock } from '@/components/CampaignBlock'
 import { TelegramConnect } from '@/components/TelegramConnect'
 import { apiGet } from '@/lib/api'
+import { useNotify } from '@/ui/notify/notify'
 
 
 interface User {
@@ -19,6 +20,7 @@ interface User {
 	gender?: string | null
 	telegram?: string | null
 	birthday?: string | null
+	city?: string | null
 	gsheet_url?: string | null
 	referral_code?: string | null
 }
@@ -27,6 +29,7 @@ export default function CabinetPage() {
 	const router = useRouter()
 	const [user, setUser] = useState<User | null>(null)
 	const [loading, setLoading] = useState(true)
+	const notify = useNotify()
 
 	const backendUrl =
 		process.env.NEXT_PUBLIC_BACKEND_URL || '/api'
@@ -127,6 +130,10 @@ export default function CabinetPage() {
 					<strong>Ваша дата рождения</strong>{' '}
 					<p>{user.birthday ? user.birthday : 'Не указана'}</p>
 				</div>
+				<div className='profile-text'>
+					<strong>Город</strong>{' '}
+					<p>{user.city || 'Не указан'}</p>
+				</div>
 				<div className='profile-btns'>
 					<button onClick={goSubscription}>Ваша подписка</button>
 				</div>
@@ -186,9 +193,9 @@ export default function CabinetPage() {
 									onClick={async () => {
 										try {
 											await navigator.clipboard.writeText(link)
-											alert('Ссылка скопирована')
+											notify('Ссылка скопирована', { type: 'success' })
 										} catch {
-											alert('Не удалось скопировать')
+											notify('Не удалось скопировать', { type: 'error' })
 										}
 									}}
 									className='link-input'

@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import './page.css'
+import { useNotify } from '@/ui/notify/notify'
 
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || '/api'
 
@@ -10,10 +11,12 @@ export default function LoginPage() {
 	const [phone, setPhone] = useState('')
 	const [loading, setLoading] = useState(false)
 	const router = useRouter()
+	const notify = useNotify()
+
 
 	const sendCode = async () => {
 		if (!phone.trim()) {
-			alert('Введите номер телефона')
+			notify('Введите номер телефона', { type: 'warning' })
 			return
 		}
 
@@ -28,7 +31,7 @@ export default function LoginPage() {
 			const data = await res.json().catch(() => ({}))
 
 			if (!data?.success) {
-				alert(data?.message || 'Ошибка при отправке кода')
+				notify(data?.message || 'Ошибка при отправке кода', { type: 'error', title: 'Ошибка' })
 				return
 			}
 
@@ -37,7 +40,10 @@ export default function LoginPage() {
 			)
 		} catch (err) {
 			console.error(err)
-			alert('Ошибка сети, попробуйте ещё раз')
+			notify('Ошибка сети, попробуйте ещё раз', {
+				type: 'error',
+				title: 'Ошибка',
+			})
 		} finally {
 			setLoading(false)
 		}

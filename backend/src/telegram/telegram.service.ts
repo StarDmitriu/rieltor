@@ -218,6 +218,7 @@ export class TelegramService {
     if (!phone.startsWith('+')) {
       return { success: false, message: 'user_phone_invalid_format' };
     }
+    this.logger.log(`[TG] normalized phone for ${userId}: ${phone}`);
 
     // если уже подключён — ок
     if (this.sessions.has(userId)) {

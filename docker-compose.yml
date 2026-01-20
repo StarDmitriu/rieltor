@@ -59,12 +59,12 @@ services:
       options:
         max-size: "20m"
         max-file: "3"
-    healthcheck:
+    #healthcheck:
       # если у тебя нет /health — можно заменить на проверку порта
-      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/health >/dev/null 2>&1 || exit 1"]
-      interval: 15s
-      timeout: 5s
-      retries: 10
+      #test: ["CMD-SHELL", "wget -qO- http://localhost:3000/health >/dev/null 2>&1 || exit 1"]
+      #interval: 15s
+      #timeout: 5s
+      #retries: 10
 
   frontend:
     build:
@@ -80,8 +80,8 @@ services:
       TURBOPACK: "0"
 
     depends_on:
-      backend:
-        condition: service_healthy
+      - backend
+
 
     restart: unless-stopped
     stop_grace_period: 15s
@@ -92,11 +92,6 @@ services:
       options:
         max-size: "20m"
         max-file: "3"
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:3001 >/dev/null 2>&1 || exit 1"]
-      interval: 15s
-      timeout: 5s
-      retries: 10
 
   nginx:
     image: nginx:alpine
@@ -110,10 +105,8 @@ services:
       - ./deploy/certbot/conf:/etc/letsencrypt:ro
 
     depends_on:
-      frontend:
-        condition: service_healthy
-      backend:
-        condition: service_healthy
+      - frontend
+      - backend
 
     restart: unless-stopped
     stop_grace_period: 10s
@@ -124,11 +117,11 @@ services:
       options:
         max-size: "20m"
         max-file: "3"
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost >/dev/null 2>&1 || exit 1"]
-      interval: 15s
-      timeout: 5s
-      retries: 10
+    #healthcheck:
+      #test: ["CMD-SHELL", "wget -qO- http://localhost >/dev/null 2>&1 || exit 1"]
+      #interval: 15s
+      #timeout: 5s
+      #retries: 10
 
 volumes:
   redis_data:

@@ -115,9 +115,15 @@ export function TelegramConnect({ userId }: { userId: string }) {
 			const data = await res.json().catch(() => ({}))
 
 			if (!data?.success) {
-				setErrorText(
-					data?.error || data?.message || 'Ошибка подтверждения кода'
-				)
+				if (data?.message === 'invalid_code') {
+					setErrorText('Неверный код')
+				} else if (data?.message === 'code_expired') {
+					setErrorText('Код истек. Запроси новый')
+				} else {
+					setErrorText(
+						data?.error || data?.message || 'Ошибка подтверждения кода'
+					)
+				}
 			}
 
 			setCode('')

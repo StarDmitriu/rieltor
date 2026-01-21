@@ -17,6 +17,13 @@ function parseHHMM(hhmm: string) {
   return { h: Number.isFinite(h) ? h : 8, m: Number.isFinite(m) ? m : 0 };
 }
 
+function nextFixedTime(base: DateTime, hhmm: string) {
+  const { h, m } = parseHHMM(hhmm);
+  let target = base.set({ hour: h, minute: m, second: 0, millisecond: 0 });
+  if (target < base) target = target.plus({ days: 1 });
+  return target;
+}
+
 /** Если время попало вне окна — переносим на ближайшее разрешённое. */
 /** Поддерживает окна и "через полночь" (например 21:00–06:00). */
 function clampToWindow(dt: DateTime, fromHHMM: string, toHHMM: string) {
@@ -594,12 +601,13 @@ export class CampaignsService {
     if (Number.isFinite(nextMs) && nextMs > Date.now())
       return { success: true, message: 'not_time_yet' };
 
-    // если есть pending/processing — волна ещё идёт
+    // если есть pending/processing с временем <= сейчас — волна ещё идёт
     const { data: inFlight, error: fErr } = await supabase
       .from('campaign_jobs')
       .select('id')
       .eq('campaign_id', campaignId)
       .in('status', ['pending', 'processing'])
+      .lte('scheduled_at', nowIso)
       .limit(1);
 
     if (fErr)
@@ -697,12 +705,16 @@ export class CampaignsService {
     const supabase = this.supabaseService.getClient();
 
     // ✅ 1) load groups by channel into unified shape { jid: string }
-    let usableGroups: Array<{ jid: string; is_announcement?: boolean }> = [];
+    let usableGroups: Array<{
+      jid: string;
+      is_announcement?: boolean;
+      send_time?: string | null;
+    }> = [];
 
     if (params.channel === 'wa') {
       const { data: groups, error: gErr } = await supabase
         .from('whatsapp_groups')
-        .select('wa_group_id, is_announcement, is_selected')
+        .select('wa_group_id, is_announcement, is_selected, send_time')
         .eq('user_id', params.userId)
         .eq('is_selected', true);
 
@@ -715,11 +727,14 @@ export class CampaignsService {
 
       usableGroups = (groups ?? [])
         .filter((g: any) => !g.is_announcement)
-        .map((g: any) => ({ jid: String(g.wa_group_id) }));
+        .map((g: any) => ({
+          jid: String(g.wa_group_id),
+          send_time: g.send_time ?? null,
+        }));
     } else {
       const { data: groups, error: gErr } = await supabase
         .from('telegram_groups')
-        .select('tg_chat_id, is_selected')
+        .select('tg_chat_id, is_selected, send_time')
         .eq('user_id', params.userId)
         .eq('is_selected', true);
 
@@ -732,6 +747,7 @@ export class CampaignsService {
 
       usableGroups = (groups ?? []).map((g: any) => ({
         jid: String(g.tg_chat_id),
+        send_time: g.send_time ?? null,
       }));
     }
 
@@ -791,6 +807,29 @@ export class CampaignsService {
 
     const jobsToInsert: any[] = [];
 
+    const { data: existingJobs, error: existErr } = await supabase
+      .from('campaign_jobs')
+      .select('group_jid, template_id, scheduled_at, status')
+      .eq('campaign_id', params.campaignId)
+      .eq('status', 'pending')
+      .gte('scheduled_at', new Date().toISOString());
+
+    if (existErr) {
+      return {
+        success: false,
+        message: 'supabase_jobs_select_error',
+        error: existErr,
+      };
+    }
+
+    const pendingFutureMap = new Map<string, string>();
+    for (const j of existingJobs ?? []) {
+      const key = `${String((j as any).group_jid)}|${String(
+        (j as any).template_id,
+      )}`;
+      pendingFutureMap.set(key, String((j as any).scheduled_at));
+    }
+
     for (let ti = 0; ti < templates.length; ti++) {
       const template: any = templates[ti];
 
@@ -810,7 +849,20 @@ export class CampaignsService {
       for (let gi = 0; gi < targetGroups.length; gi++) {
         const group: any = targetGroups[gi];
 
-        cursor = clampToWindow(cursor, params.time_from, params.time_to);
+        const fixedTime = group?.send_time
+          ? nextFixedTime(base, String(group.send_time))
+          : null;
+
+        if (!fixedTime) {
+          cursor = clampToWindow(cursor, params.time_from, params.time_to);
+        }
+
+        if (fixedTime) {
+          const key = `${String(group.jid)}|${String(template.id)}`;
+          if (pendingFutureMap.has(key)) {
+            continue;
+          }
+        }
 
         jobsToInsert.push({
           campaign_id: params.campaignId,
@@ -819,16 +871,20 @@ export class CampaignsService {
           channel: params.channel,
           template_id: template.id,
           status: 'pending',
-          scheduled_at: cursor.toUTC().toISO(),
+          scheduled_at: fixedTime
+            ? fixedTime.toUTC().toISO()
+            : cursor.toUTC().toISO(),
           created_at: new Date().toISOString(),
         });
 
-        cursor = cursor.plus({
-          seconds: randInt(
-            params.betweenGroupsSecMin,
-            params.betweenGroupsSecMax,
-          ),
-        });
+        if (!fixedTime) {
+          cursor = cursor.plus({
+            seconds: randInt(
+              params.betweenGroupsSecMin,
+              params.betweenGroupsSecMax,
+            ),
+          });
+        }
       }
 
       if (ti < templates.length - 1) {

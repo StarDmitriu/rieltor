@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useMemo, useState } from 'react'
 import Cookies from 'js-cookie'
@@ -14,6 +14,7 @@ import {
 	Table,
 	Tag,
 	Segmented,
+	TimePicker,
 } from 'antd'
 import type { UploadProps } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
@@ -22,6 +23,7 @@ import { useRouter } from 'next/navigation'
 import { apiPost } from '@/lib/api'
 import './page.css'
 import Image from 'next/image'
+import dayjs from 'dayjs'
 
 
 const BACKEND_URL =
@@ -33,6 +35,7 @@ type UiGroupRow = {
 	participants_count: number | null
 	is_restricted?: boolean | null
 	updated_at: string
+	send_time?: string | null
 }
 
 export default function TemplateCreatePage() {
@@ -52,6 +55,9 @@ export default function TemplateCreatePage() {
 	const [waSelected, setWaSelected] = useState<string[]>([])
 	const [tgSelected, setTgSelected] = useState<string[]>([])
 	const [savingTargets, setSavingTargets] = useState(false)
+	const [savingTimeMap, setSavingTimeMap] = useState<Record<string, boolean>>(
+		{}
+	)
 
 	const token = Cookies.get('token') || ''
 
@@ -100,6 +106,7 @@ export default function TemplateCreatePage() {
 					participants_count: g.participants_count ?? null,
 					is_restricted: g.is_restricted ?? false,
 					updated_at: g.updated_at,
+					send_time: g.send_time ?? null,
 				}))
 			)
 		} catch (e) {
@@ -132,6 +139,7 @@ export default function TemplateCreatePage() {
 					participants_count: g.participants_count ?? null,
 					is_restricted: false,
 					updated_at: g.updated_at,
+					send_time: g.send_time ?? null,
 				}))
 			)
 		} catch (e) {
@@ -214,6 +222,25 @@ export default function TemplateCreatePage() {
 					v || <span style={{ opacity: 0.6 }}>без названия</span>,
 			},
 			{
+				title: 'Время',
+				key: 'send_time',
+				width: 140,
+				render: (_: any, row: UiGroupRow) => (
+					<TimePicker
+						allowClear
+						placeholder='Время'
+						size='small'
+						style={{ width: 90 }}
+						format='HH:mm'
+						value={row.send_time ? dayjs(row.send_time, 'HH:mm') : null}
+						disabled={!!savingTimeMap[channel + ':' + row.jid]}
+						onChange={v =>
+							setGroupSendTime(channel, row.jid, v ? v.format('HH:mm') : null)
+						}
+					/>
+				),
+			},
+			{
 				title: 'Участники',
 				dataIndex: 'participants_count',
 				key: 'participants_count',
@@ -231,7 +258,7 @@ export default function TemplateCreatePage() {
 				),
 			},
 		],
-		[]
+		[channel, savingTimeMap, setGroupSendTime]
 	)
 
 	const currentGroups = channel === 'wa' ? waGroups : tgGroups
@@ -239,6 +266,42 @@ export default function TemplateCreatePage() {
 	const setCurrentSelected = (keys: string[]) => {
 		if (channel === 'wa') setWaSelected(keys)
 		else setTgSelected(keys)
+	}
+
+	async function setGroupSendTime(
+		ch: 'wa' | 'tg',
+		jid: string,
+		next: string | null
+	) {
+		const key = `${ch}:${jid}`
+		setSavingTimeMap(prev => ({ ...prev, [key]: true }))
+
+		const updater = (rows: UiGroupRow[]) =>
+			rows.map(r => (r.jid === jid ? { ...r, send_time: next } : r))
+
+		if (ch === 'wa') setWaGroups(prev => updater(prev))
+		else setTgGroups(prev => updater(prev))
+
+		try {
+			const url =
+				ch === 'wa' ? '/whatsapp/groups/time' : '/telegram/groups/time'
+			const body =
+				ch === 'wa'
+					? { userId, wa_group_id: jid, send_time: next }
+					: { userId, tg_chat_id: jid, send_time: next }
+
+			const json: any = await apiPost(url, body)
+			if (!json?.success) {
+				message.error(
+					`Не удалось сохранить время группы: ${json?.message || 'unknown'}`
+				)
+			}
+		} catch (e) {
+			console.error(e)
+			message.error('Ошибка сети при сохранении времени группы')
+		} finally {
+			setSavingTimeMap(prev => ({ ...prev, [key]: false }))
+		}
 	}
 
 	const saveTargetsForTemplate = async (templateId: string) => {

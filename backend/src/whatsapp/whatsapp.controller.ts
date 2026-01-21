@@ -65,4 +65,27 @@ export class WhatsappController {
       isSelected,
     });
   }
+
+  @Post('groups/time')
+  async setSendTime(
+    @Body()
+    body: { userId?: string; wa_group_id?: string; send_time?: string | null },
+  ) {
+    const userId = body?.userId;
+    const waGroupId = body?.wa_group_id;
+    const sendTime =
+      body?.send_time === '' || body?.send_time == null
+        ? null
+        : String(body?.send_time);
+
+    if (!userId) return { success: false, message: 'userId is required' };
+    if (!waGroupId)
+      return { success: false, message: 'wa_group_id is required' };
+
+    return await this.whatsapp.setGroupSendTime({
+      userId,
+      waGroupId,
+      sendTime,
+    });
+  }
 }

@@ -52,6 +52,12 @@ async function fetchWithTimeout(url: string, timeoutMs: number) {
   }
 }
 
+function normalizeSendTime(v: any): string | null {
+  const s = String(v || '').trim();
+  if (!s) return null;
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(s) ? s : null;
+}
+
 
 export type WhatsappStatus =
   | 'not_connected'
@@ -157,6 +163,26 @@ export class WhatsappService {
       };
     }
 
+    const { data: existingTimes, error: timeErr } = await this.supabase
+      .from('whatsapp_groups')
+      .select('wa_group_id, send_time')
+      .eq('user_id', userId);
+
+    if (timeErr) {
+      this.logger.error(
+        'Supabase select whatsapp_groups send_time error',
+        timeErr as any,
+      );
+      return { success: false, message: 'supabase_select_error', error: timeErr };
+    }
+
+    const sendTimeMap = new Map(
+      (existingTimes ?? []).map((r: any) => [
+        String(r.wa_group_id),
+        r.send_time,
+      ]),
+    );
+
     const groupsMap = await s.sock.groupFetchAllParticipating();
     const groups = Object.values(groupsMap ?? {});
 
@@ -172,6 +198,7 @@ export class WhatsappService {
       is_announcement: !!g.announce,
       is_restricted: !!g.restrict,
       updated_at: nowIso,
+      send_time: sendTimeMap.get(String(g.id)) ?? null,
 
       // ✅ важно: если колонка есть — новые группы будут включены по умолчанию
       // если колонки ещё нет (до миграции) — Supabase просто проигнорирует поле
@@ -195,7 +222,7 @@ export class WhatsappService {
     const { data, error } = await this.supabase
       .from('whatsapp_groups')
       .select(
-        'wa_group_id, subject, participants_count, is_announcement, is_restricted, updated_at, is_selected',
+        'wa_group_id, subject, participants_count, is_announcement, is_restricted, updated_at, is_selected, send_time',
       )
       .eq('user_id', userId)
       .order('updated_at', { ascending: false });
@@ -236,6 +263,37 @@ export class WhatsappService {
       return { success: false, message: 'group_not_found' };
     }
 
+    return { success: true, group: data };
+  }
+
+  async setGroupSendTime(params: {
+    userId: string;
+    waGroupId: string;
+    sendTime: string | null;
+  }) {
+    const { userId, waGroupId, sendTime } = params;
+    const normalized = normalizeSendTime(sendTime);
+
+    const { data, error } = await this.supabase
+      .from('whatsapp_groups')
+      .update({
+        send_time: normalized,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('user_id', userId)
+      .eq('wa_group_id', waGroupId)
+      .select('wa_group_id, send_time')
+      .maybeSingle();
+
+    if (error) {
+      this.logger.error(
+        'Supabase update whatsapp_groups send_time error',
+        error as any,
+      );
+      return { success: false, message: 'supabase_update_error', error };
+    }
+
+    if (!data) return { success: false, message: 'group_not_found' };
     return { success: true, group: data };
   }
 

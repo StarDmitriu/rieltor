@@ -1,9 +1,10 @@
-//frontend/src/app/dashboard/telegram-groups/page.tsx
+﻿//frontend/src/app/dashboard/telegram-groups/page.tsx
 'use client'
 import { useEffect, useState } from 'react'
 import Cookies from 'js-cookie'
-import { Button, Table, message, Space, Checkbox } from 'antd'
+import { Button, Table, message, Space, Checkbox, TimePicker } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
+import dayjs from 'dayjs'
 import styles from './telegram-groups.module.css'
 import { Input } from 'antd' 
 import { useRouter } from 'next/navigation'
@@ -22,6 +23,7 @@ type TgGroupRow = {
 	participants_count: number | null
 	updated_at: string
 	is_selected?: boolean | null
+	send_time?: string | null
 }
 
 export default function TelegramGroupsPage() {
@@ -30,6 +32,9 @@ export default function TelegramGroupsPage() {
 	const [loadingGroups, setLoadingGroups] = useState(false)
 	const [syncing, setSyncing] = useState(false)
 	const [savingMap, setSavingMap] = useState<Record<string, boolean>>({})
+	const [savingTimeMap, setSavingTimeMap] = useState<Record<string, boolean>>(
+		{}
+	)
 	const [groups, setGroups] = useState<TgGroupRow[]>([])
 	const [q, setQ] = useState('')
 	const router = useRouter()
@@ -149,6 +154,40 @@ export default function TelegramGroupsPage() {
 		}
 	}
 
+	const setSendTime = async (tgChatId: string, next: string | null) => {
+		if (!userId) return
+
+		setGroups(prev =>
+			prev.map(g =>
+				g.tg_chat_id === tgChatId ? { ...g, send_time: next } : g
+			)
+		)
+		setSavingTimeMap(prev => ({ ...prev, [tgChatId]: true }))
+
+		try {
+			const res = await fetch(`${BACKEND_URL}/telegram/groups/time`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					userId,
+					tg_chat_id: tgChatId,
+					send_time: next,
+				}),
+			})
+			const json = await res.json()
+			if (!json?.success) {
+				message.error(
+					`Не удалось сохранить время группы: ${json?.message || 'unknown'}`
+				)
+			}
+		} catch (e) {
+			console.error(e)
+			message.error('Ошибка сети при сохранении времени группы')
+		} finally {
+			setSavingTimeMap(prev => ({ ...prev, [tgChatId]: false }))
+		}
+	}
+
 	const selectAll = async (val: boolean) => {
 		const ids = groups.map(g => g.tg_chat_id)
 		setGroups(prev => prev.map(g => ({ ...g, is_selected: val })))
@@ -202,11 +241,30 @@ export default function TelegramGroupsPage() {
 			render: (v: string) => <code style={{ fontSize: 12 }}>{v}</code>,
 		},
 		{
+			title: 'Время',
+			key: 'send_time',
+			width: 140,
+			render: (_: any, row: TgGroupRow) => (
+				<TimePicker
+					allowClear
+					placeholder='Время'
+					size='small'
+					style={{ width: 90 }}
+					format='HH:mm'
+					value={row.send_time ? dayjs(row.send_time, 'HH:mm') : null}
+					disabled={!!savingTimeMap[row.tg_chat_id]}
+					onChange={v =>
+						setSendTime(row.tg_chat_id, v ? v.format('HH:mm') : null)
+					}
+				/>
+			),
+		},
+		{
 			title: 'Участники',
 			dataIndex: 'participants_count',
 			key: 'participants_count',
 			width: 120,
-			render: (v: number | null) => (typeof v === 'number' ? v : '—'),
+			render: (v: number | null) => (typeof v === 'number' ? v : '-'),
 		},
 		{
 			title: 'Обновлено',

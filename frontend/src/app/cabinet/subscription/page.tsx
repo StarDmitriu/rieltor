@@ -32,8 +32,6 @@ export default function SubscriptionPage() {
 					cache: 'no-store',
 				})
 				const json = await res.json()
-				console.log('subscriptions/me response:', json)
-				console.log('backendUrl:', backendUrl)
 				setData(json)
 			} catch (e) {
 				console.error(e)

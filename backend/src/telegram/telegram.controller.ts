@@ -71,4 +71,19 @@ export class TelegramController {
 
     return this.telegram.setGroupSelected({ userId, tgChatId, isSelected });
   }
+
+  @Post('groups/time')
+  async setSendTime(@Body() body: any) {
+    const userId = body?.userId;
+    const tgChatId = String(body?.tg_chat_id || '').trim();
+    const sendTime =
+      body?.send_time === '' || body?.send_time == null
+        ? null
+        : String(body?.send_time);
+
+    if (!userId) return { success: false, message: 'userId is required' };
+    if (!tgChatId) return { success: false, message: 'tg_chat_id is required' };
+
+    return this.telegram.setGroupSendTime({ userId, tgChatId, sendTime });
+  }
 }

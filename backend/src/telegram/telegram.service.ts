@@ -41,6 +41,12 @@ function normalizePhone(raw: string) {
   return s;
 }
 
+function normalizeSendTime(v: any): string | null {
+  const s = String(v || '').trim();
+  if (!s) return null;
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(s) ? s : null;
+}
+
 type PendingAuth = {
   client: TelegramClient;
   phone: string;
@@ -256,6 +262,40 @@ export class TelegramService {
 
     await client.connect();
 
+    const sendCode = (client as any).sendCode?.bind(client);
+    if (sendCode) {
+      (client as any).sendCode = async (...args: any[]) => {
+        const res = await sendCode(...args);
+        const typeClass =
+          (res as any)?.type?.className ||
+          (res as any)?.type?._ ||
+          (res as any)?.type?.constructor?.name ||
+          '';
+        const nextTypeClass =
+          (res as any)?.nextType?.className ||
+          (res as any)?.nextType?._ ||
+          (res as any)?.nextType?.constructor?.name ||
+          '';
+        const timeout = (res as any)?.timeout;
+        this.logger.log(
+          `[TG] sendCode type=${typeClass || 'unknown'} nextType=${
+            nextTypeClass || 'none'
+          } timeout=${timeout ?? 'n/a'}`,
+        );
+        const isCodeViaApp = (res as any)?.isCodeViaApp;
+        const hashLen = String((res as any)?.phoneCodeHash || '').length;
+        this.logger.log(
+          `[TG] sendCode keys=${Object.keys(res || {}).join(',')} typeKeys=${Object.keys(
+            (res as any)?.type || {},
+          ).join(',')}`,
+        );
+        this.logger.log(
+          `[TG] sendCode isCodeViaApp=${String(isCodeViaApp)} phoneCodeHashLen=${hashLen}`,
+        );
+        return res;
+      };
+    }
+
     const phoneCode = deferred<string>();
     const password = deferred<string>();
 
@@ -403,6 +443,17 @@ export class TelegramService {
     } catch (e: any) {
       const msg = String(e?.message ?? e);
 
+      if (msg.includes('PHONE_CODE_INVALID')) {
+        p.lastError = 'invalid_code';
+        this.pending.set(userId, p);
+        return { success: false, message: 'invalid_code' };
+      }
+      if (msg.includes('PHONE_CODE_EXPIRED')) {
+        p.lastError = 'code_expired';
+        this.pending.set(userId, p);
+        return { success: false, message: 'code_expired' };
+      }
+
       const m = msg.match(/A wait of (\d+) seconds is required/i);
       if (m) {
         const seconds = Number(m[1] || 0);
@@ -492,6 +543,27 @@ export class TelegramService {
     const client = await this.getConnectedClient(userId);
     if (!client) return { success: false, message: 'telegram_not_connected' };
 
+    const supabase = this.supabaseService.getClient();
+    const { data: existingTimes, error: timeErr } = await supabase
+      .from('telegram_groups')
+      .select('tg_chat_id, send_time')
+      .eq('user_id', userId);
+
+    if (timeErr) {
+      this.logger.error(
+        'Supabase select telegram_groups send_time error',
+        timeErr as any,
+      );
+      return { success: false, message: 'supabase_select_error', error: timeErr };
+    }
+
+    const sendTimeMap = new Map(
+      (existingTimes ?? []).map((r: any) => [
+        String(r.tg_chat_id),
+        r.send_time,
+      ]),
+    );
+
     let dialogs;
     try {
       dialogs = await client.getDialogs({});
@@ -545,10 +617,10 @@ export class TelegramService {
         participants_count: null,
         is_selected: true,
         updated_at: nowIso,
+        send_time: sendTimeMap.get(chatIdStr) ?? null,
       });
     }
 
-    const supabase = this.supabaseService.getClient();
     const { error } = await supabase
       .from('telegram_groups')
       .upsert(rows, { onConflict: 'user_id,tg_chat_id' });
@@ -565,7 +637,9 @@ export class TelegramService {
     const supabase = this.supabaseService.getClient();
     const { data, error } = await supabase
       .from('telegram_groups')
-      .select('tg_chat_id, title, participants_count, is_selected, updated_at')
+      .select(
+        'tg_chat_id, title, participants_count, is_selected, updated_at, send_time',
+      )
       .eq('user_id', userId)
       .order('updated_at', { ascending: false });
 
@@ -590,6 +664,31 @@ export class TelegramService {
       .eq('user_id', userId)
       .eq('tg_chat_id', tgChatId)
       .select('tg_chat_id, is_selected')
+      .maybeSingle();
+
+    if (error) {
+      this.logger.error('Supabase update telegram_groups error', error as any);
+      return { success: false, message: 'supabase_update_error', error };
+    }
+    if (!data) return { success: false, message: 'group_not_found' };
+    return { success: true, group: data };
+  }
+
+  async setGroupSendTime(params: {
+    userId: string;
+    tgChatId: string;
+    sendTime: string | null;
+  }) {
+    const supabase = this.supabaseService.getClient();
+    const { userId, tgChatId, sendTime } = params;
+    const normalized = normalizeSendTime(sendTime);
+
+    const { data, error } = await supabase
+      .from('telegram_groups')
+      .update({ send_time: normalized, updated_at: new Date().toISOString() })
+      .eq('user_id', userId)
+      .eq('tg_chat_id', tgChatId)
+      .select('tg_chat_id, send_time')
       .maybeSingle();
 
     if (error) {

@@ -1,9 +1,10 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useMemo, useState } from 'react'
 import Cookies from 'js-cookie'
-import { Button, Table, message, Space, Tag, Checkbox, Input } from 'antd'
+import { Button, Table, message, Space, Tag, Checkbox, Input, TimePicker } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
+import dayjs from 'dayjs'
 import { useRouter } from 'next/navigation'
 import styles from '../telegram-groups/telegram-groups.module.css' // <-- берем те же стили
 
@@ -25,6 +26,7 @@ type GroupRow = {
 	is_restricted: boolean | null
 	updated_at: string
 	is_selected?: boolean | null
+	send_time?: string | null
 }
 
 type GroupsResponse =
@@ -39,6 +41,9 @@ export default function GroupsPage() {
 	const [loadingGroups, setLoadingGroups] = useState(false)
 	const [syncing, setSyncing] = useState(false)
 	const [savingMap, setSavingMap] = useState<Record<string, boolean>>({})
+	const [savingTimeMap, setSavingTimeMap] = useState<Record<string, boolean>>(
+		{}
+	)
 	const [groups, setGroups] = useState<GroupRow[]>([])
 	const [q, setQ] = useState('')
 
@@ -157,6 +162,40 @@ export default function GroupsPage() {
 		}
 	}
 
+	const setSendTime = async (waGroupId: string, next: string | null) => {
+		if (!userId) return
+
+		setGroups(prev =>
+			prev.map(g =>
+				g.wa_group_id === waGroupId ? { ...g, send_time: next } : g
+			)
+		)
+		setSavingTimeMap(prev => ({ ...prev, [waGroupId]: true }))
+
+		try {
+			const res = await fetch(`${BACKEND_URL}/whatsapp/groups/time`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					userId,
+					wa_group_id: waGroupId,
+					send_time: next,
+				}),
+			})
+			const json = await res.json()
+			if (!json?.success) {
+				message.error(
+					`Не удалось сохранить время группы: ${json?.message || 'unknown'}`
+				)
+			}
+		} catch (e) {
+			console.error(e)
+			message.error('Ошибка сети при сохранении времени группы')
+		} finally {
+			setSavingTimeMap(prev => ({ ...prev, [waGroupId]: false }))
+		}
+	}
+
 	const selectAll = async (val: boolean) => {
 		const ids = groups.map(g => g.wa_group_id)
 		setGroups(prev => prev.map(g => ({ ...g, is_selected: val })))
@@ -223,11 +262,30 @@ export default function GroupsPage() {
 			),
 		},
 		{
+			title: 'Время',
+			key: 'send_time',
+			width: 140,
+			render: (_: any, row: GroupRow) => (
+				<TimePicker
+					allowClear
+					placeholder='Время'
+					size='small'
+					style={{ width: 90 }}
+					format='HH:mm'
+					value={row.send_time ? dayjs(row.send_time, 'HH:mm') : null}
+					disabled={!!savingTimeMap[row.wa_group_id]}
+					onChange={v =>
+						setSendTime(row.wa_group_id, v ? v.format('HH:mm') : null)
+					}
+				/>
+			),
+		},
+		{
 			title: 'Участники',
 			dataIndex: 'participants_count',
 			key: 'participants_count',
 			width: 120,
-			render: (v: number | null) => (typeof v === 'number' ? v : '—'),
+			render: (v: number | null) => (typeof v === 'number' ? v : '-'),
 		},
 	]
 

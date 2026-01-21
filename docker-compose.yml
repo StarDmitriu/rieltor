@@ -23,6 +23,8 @@ services:
     build:
       context: ./backend
     container_name: chatrassylka_backend
+    env_file:
+      - ./backend/.env
     environment:
       NODE_ENV: production
       PORT: 3000
@@ -32,18 +34,22 @@ services:
       # лучше оставить хост/порт, без url — так меньше сюрпризов
       # REDIS_URL: redis://redis:6379
 
-      TG_API_ID: "38841476"
-      TG_API_HASH: "f7d028dd897d7c54ed245b7a959bb68c"
+      #TG_API_ID: "38841476"
+      #TG_API_HASH: "f7d028dd897d7c54ed245b7a959bb68c"
       TELEGRAM_AUTOCONNECT: "false"
+
+      #PRODAMUS_FORM_URL: ${PRODAMUS_FORM_URL}
+      #PRODAMUS_SECRET_KEY: ${PRODAMUS_SECRET_KEY}
+      #PRODAMUS_SYS: ${PRODAMUS_SYS}
 
       CAMPAIGN_REPEAT_ENABLED: "true"
       DEFAULT_TZ: Europe/Moscow
 
-      SMSRU_API_ID: ${SMSRU_API_ID}
+      #SMSRU_API_ID: ${SMSRU_API_ID}
 
-      SUPABASE_URL: ${SUPABASE_URL}
-      SUPABASE_KEY: ${SUPABASE_KEY}
-      JWT_SECRET: ${JWT_SECRET}
+      #SUPABASE_URL: ${SUPABASE_URL}
+      #SUPABASE_KEY: ${SUPABASE_KEY}
+      #JWT_SECRET: ${JWT_SECRET}
 
 
     depends_on:

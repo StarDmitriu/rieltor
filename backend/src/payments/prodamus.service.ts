@@ -15,6 +15,8 @@ export class ProdamusService {
     if (!this.sys) throw new Error('Missing env: PRODAMUS_SYS'); // <-- ДОБАВЬ
   }
 
+  
+
   getBaseFormUrl(): string {
     this.assertConfig();
     // гарантируем trailing slash
@@ -142,10 +144,11 @@ export class ProdamusService {
   }): string {
     const base = this.getBaseFormUrl();
 
+    console.log('SECRET:', JSON.stringify(process.env.PRODAMUS_SECRET_KEY));
     const dataForSign: AnyObj = {
       do: 'link',
       sys: this.sys,
-      order_id: params.orderId,
+      order_num: params.orderId,
       customer_phone: params.customerPhone || '',
       customer_email: params.customerEmail || '',
       customer_extra: params.customerExtra || '',
@@ -164,7 +167,9 @@ export class ProdamusService {
     const q = new URLSearchParams();
     q.set('do', 'link');
     q.set('sys', this.sys);   
-    q.set('order_id', params.orderId);
+    //q.set('order_id', params.orderId);
+    q.set('order_num', params.orderId);
+
     if (params.customerPhone) q.set('customer_phone', params.customerPhone);
     if (params.customerEmail) q.set('customer_email', params.customerEmail);
     if (params.customerExtra) q.set('customer_extra', params.customerExtra);

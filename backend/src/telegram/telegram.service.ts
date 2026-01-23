@@ -1,5 +1,5 @@
 // backend/src/telegram/telegram.service.ts
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 import { TelegramClient } from 'telegram';
 import { StringSession } from 'telegram/sessions';
@@ -124,13 +124,36 @@ async function fetchWithTimeout(url: string, timeoutMs: number) {
 }
 
 @Injectable()
-export class TelegramService {
+export class TelegramService implements OnModuleDestroy {
   private readonly logger = new Logger(TelegramService.name);
 
   private sessions = new Map<string, TelegramClient>(); // userId -> connected client
   private pending = new Map<string, PendingAuth>(); // userId -> auth flow
 
+  // --- lock per userId (prevents AUTH_KEY_DUPLICATED races) ---
+  private locks = new Map<string, Promise<void>>();
+
   constructor(private readonly supabaseService: SupabaseService) {}
+
+  private async withLock<T>(key: string, fn: () => Promise<T>): Promise<T> {
+    const prev = this.locks.get(key) ?? Promise.resolve();
+
+    let release!: () => void;
+    const cur = new Promise<void>((r) => (release = r));
+    this.locks.set(
+      key,
+      prev.then(() => cur),
+    );
+
+    await prev;
+    try {
+      return await fn();
+    } finally {
+      release();
+      // cleanup: only delete if still the latest in chain
+      if (this.locks.get(key) === cur) this.locks.delete(key);
+    }
+  }
 
   private apiId(): number {
     const v = Number(process.env.TG_API_ID);
@@ -142,6 +165,21 @@ export class TelegramService {
     const v = String(process.env.TG_API_HASH || '').trim();
     if (!v) throw new Error('TG_API_HASH is not set');
     return v;
+  }
+
+  // Graceful shutdown
+  async onModuleDestroy() {
+    // disconnect connected clients
+    for (const c of this.sessions.values()) {
+      await c.disconnect().catch(() => undefined);
+    }
+    this.sessions.clear();
+
+    // disconnect pending auth clients
+    for (const p of this.pending.values()) {
+      await p.client.disconnect().catch(() => undefined);
+    }
+    this.pending.clear();
   }
 
   // ---------- status ----------
@@ -181,9 +219,16 @@ export class TelegramService {
         );
         return { success: true, status: 'connected' as TgStatus };
       } catch (e: any) {
-        this.logger.warn(
-          `TG connectFromSavedSession failed: ${e?.message ?? e}`,
-        );
+        const msg = String(e?.message ?? e);
+        this.logger.warn(`TG connectFromSavedSession failed: ${msg}`);
+
+        // IMPORTANT: if duplicated, burn saved session, otherwise it will "randomly" break forever
+        if (msg.includes('AUTH_KEY_DUPLICATED')) {
+          await supabase
+            .from('users')
+            .update({ tg_session: null })
+            .eq('id', userId);
+        }
       }
     }
 
@@ -191,159 +236,200 @@ export class TelegramService {
   }
 
   private async connectFromSavedSession(userId: string, sessionStr: string) {
-    const session = new StringSession(sessionStr);
-    const client = new TelegramClient(session, this.apiId(), this.apiHash(), {
-      connectionRetries: 5,
-      retryDelay: 1000,
+    return this.withLock(userId, async () => {
+      // maybe already connected while we waited for lock
+      if (this.sessions.has(userId)) return;
+
+      const session = new StringSession(sessionStr);
+      const client = new TelegramClient(session, this.apiId(), this.apiHash(), {
+        connectionRetries: 5,
+        retryDelay: 1000,
+      });
+
+      await client.connect();
+      const me = await client.getMe().catch(() => null);
+      if (!me) {
+        await client.disconnect().catch(() => undefined);
+        throw new Error('tg_saved_session_invalid');
+      }
+
+      this.sessions.set(userId, client);
     });
-
-    await client.connect();
-    const me = await client.getMe().catch(() => null);
-    if (!me) {
-      await client.disconnect().catch(() => undefined);
-      throw new Error('tg_saved_session_invalid');
-    }
-
-    this.sessions.set(userId, client);
   }
 
   // ---------- auth start (send code) ----------
   async startAuth(userId: string) {
-    this.logger.log(`[TG] startAuth userId=${userId}`);
+    return this.withLock(userId, async () => {
+      this.logger.log(`[TG] startAuth userId=${userId}`);
 
-    const supabase = this.supabaseService.getClient();
-    const { data: user, error } = await supabase
-      .from('users')
-      .select('id, phone')
-      .eq('id', userId)
-      .maybeSingle();
+      const supabase = this.supabaseService.getClient();
+      const { data: user, error } = await supabase
+        .from('users')
+        .select('id, phone')
+        .eq('id', userId)
+        .maybeSingle();
 
-    if (error || !user) return { success: false, message: 'user_not_found' };
+      if (error || !user) return { success: false, message: 'user_not_found' };
 
-    let phone = normalizePhone(String((user as any).phone || ''));
-    if (!phone.startsWith('+')) {
-      return { success: false, message: 'user_phone_invalid_format' };
-    }
-    this.logger.log(`[TG] normalized phone for ${userId}: ${phone}`);
+      let phone = normalizePhone(String((user as any).phone || ''));
+      if (!phone.startsWith('+')) {
+        return { success: false, message: 'user_phone_invalid_format' };
+      }
+      this.logger.log(`[TG] normalized phone for ${userId}: ${phone}`);
 
-    // если уже подключён — ок
-    if (this.sessions.has(userId)) {
-      return {
-        success: true,
-        status: 'connected' as TgStatus,
-        message: 'already_connected',
+      // если уже подключён — ок
+      if (this.sessions.has(userId)) {
+        return {
+          success: true,
+          status: 'connected' as TgStatus,
+          message: 'already_connected',
+        };
+      }
+
+      // если pending уже есть — не создаём заново (5 минут), а если floodwait — возвращаем его
+      const existing = this.pending.get(userId);
+      if (existing?.cooldownUntil && Date.now() < existing.cooldownUntil) {
+        const left = Math.ceil((existing.cooldownUntil - Date.now()) / 1000);
+        return {
+          success: false,
+          status: existing.status,
+          message: 'tg_flood_wait',
+          seconds: left,
+        };
+      }
+
+      if (existing && Date.now() - existing.createdAt < 5 * 60_000) {
+        return {
+          success: true,
+          status: existing.status,
+          message: 'already_started',
+        };
+      }
+
+      const session = new StringSession('');
+      const client = new TelegramClient(session, this.apiId(), this.apiHash(), {
+        connectionRetries: 2,
+      });
+
+      await client.connect();
+
+      const sendCode = (client as any).sendCode?.bind(client);
+      if (sendCode) {
+        (client as any).sendCode = async (...args: any[]) => {
+          const res = await sendCode(...args);
+          const typeClass =
+            (res as any)?.type?.className ||
+            (res as any)?.type?._ ||
+            (res as any)?.type?.constructor?.name ||
+            '';
+          const nextTypeClass =
+            (res as any)?.nextType?.className ||
+            (res as any)?.nextType?._ ||
+            (res as any)?.nextType?.constructor?.name ||
+            '';
+          const timeout = (res as any)?.timeout;
+          this.logger.log(
+            `[TG] sendCode type=${typeClass || 'unknown'} nextType=${
+              nextTypeClass || 'none'
+            } timeout=${timeout ?? 'n/a'}`,
+          );
+          const isCodeViaApp = (res as any)?.isCodeViaApp;
+          const hashLen = String((res as any)?.phoneCodeHash || '').length;
+          this.logger.log(
+            `[TG] sendCode keys=${Object.keys(res || {}).join(',')} typeKeys=${Object.keys(
+              (res as any)?.type || {},
+            ).join(',')}`,
+          );
+          this.logger.log(
+            `[TG] sendCode isCodeViaApp=${String(isCodeViaApp)} phoneCodeHashLen=${hashLen}`,
+          );
+          return res;
+        };
+      }
+
+      const phoneCode = deferred<string>();
+      const password = deferred<string>();
+
+      const p: PendingAuth = {
+        client,
+        phone,
+        createdAt: Date.now(),
+        status: 'awaiting_code',
+        phoneCode,
+        password,
+        startPromise: Promise.resolve(),
       };
-    }
 
-    // если pending уже есть — не создаём заново (5 минут), а если floodwait — возвращаем его
-    const existing = this.pending.get(userId);
-    if (existing?.cooldownUntil && Date.now() < existing.cooldownUntil) {
-      const left = Math.ceil((existing.cooldownUntil - Date.now()) / 1000);
-      return {
-        success: false,
-        status: existing.status,
-        message: 'tg_flood_wait',
-        seconds: left,
-      };
-    }
+      // ВАЖНО: НЕ вызываем auth.SendCode вручную.
+      // client.start сам отправит код и будет ждать ввода через phoneCode().
+      p.startPromise = client.start({
+        phoneNumber: async () => phone,
 
-    if (existing && Date.now() - existing.createdAt < 5 * 60_000) {
-      return {
-        success: true,
-        status: existing.status,
-        message: 'already_started',
-      };
-    }
+        phoneCode: async () => {
+          this.logger.log(
+            '[TG] phoneCode() callback entered (code was sent by Telegram)',
+          );
+          const code = await p.phoneCode.promise;
+          p.phoneCode = deferred<string>(); // allow retries if code wrong
+          return code;
+        },
 
-    const session = new StringSession('');
-    const client = new TelegramClient(session, this.apiId(), this.apiHash(), {
-      connectionRetries: 2,
-    });
+        password: async () => {
+          p.status = 'awaiting_password';
+          p.lastError = undefined;
+          this.pending.set(userId, p);
 
-    await client.connect();
+          const pass = await p.password.promise;
+          p.password = deferred<string>(); // allow retries
+          return pass;
+        },
 
-    const sendCode = (client as any).sendCode?.bind(client);
-    if (sendCode) {
-      (client as any).sendCode = async (...args: any[]) => {
-        const res = await sendCode(...args);
-        const typeClass =
-          (res as any)?.type?.className ||
-          (res as any)?.type?._ ||
-          (res as any)?.type?.constructor?.name ||
-          '';
-        const nextTypeClass =
-          (res as any)?.nextType?.className ||
-          (res as any)?.nextType?._ ||
-          (res as any)?.nextType?.constructor?.name ||
-          '';
-        const timeout = (res as any)?.timeout;
-        this.logger.log(
-          `[TG] sendCode type=${typeClass || 'unknown'} nextType=${
-            nextTypeClass || 'none'
-          } timeout=${timeout ?? 'n/a'}`,
-        );
-        const isCodeViaApp = (res as any)?.isCodeViaApp;
-        const hashLen = String((res as any)?.phoneCodeHash || '').length;
-        this.logger.log(
-          `[TG] sendCode keys=${Object.keys(res || {}).join(',')} typeKeys=${Object.keys(
-            (res as any)?.type || {},
-          ).join(',')}`,
-        );
-        this.logger.log(
-          `[TG] sendCode isCodeViaApp=${String(isCodeViaApp)} phoneCodeHashLen=${hashLen}`,
-        );
-        return res;
-      };
-    }
+        onError: (err) => {
+          const msg = String((err as any)?.message ?? err);
+          this.logger.warn(`[TG] start onError: ${msg}`);
 
-    const phoneCode = deferred<string>();
-    const password = deferred<string>();
+          // TIMEOUT — шум gramjs, не считаем фатальным
+          if (msg.includes('TIMEOUT')) {
+            this.logger.warn(`[TG] TIMEOUT ignored: ${msg}`);
+            return;
+          }
 
-    const p: PendingAuth = {
-      client,
-      phone,
-      createdAt: Date.now(),
-      status: 'awaiting_code',
-      phoneCode,
-      password,
-      startPromise: Promise.resolve(),
-    };
+          // FLOOD_WAIT
+          const m = msg.match(/A wait of (\d+) seconds is required/i);
+          if (m) {
+            const seconds = Number(m[1] || 0);
+            p.status = 'awaiting_code';
+            p.lastError = `flood_wait_${seconds}`;
+            p.cooldownUntil = Date.now() + seconds * 1000;
+            this.pending.set(userId, p);
+            void p.client.disconnect().catch(() => undefined);
+            return;
+          }
 
-    // ВАЖНО: НЕ вызываем auth.SendCode вручную.
-    // client.start сам отправит код и будет ждать ввода через phoneCode().
-    p.startPromise = client.start({
-      phoneNumber: async () => phone,
+          // AUTH_KEY_DUPLICATED — this session is poisoned, disconnect and keep error
+          if (msg.includes('AUTH_KEY_DUPLICATED')) {
+            p.status = 'error';
+            p.lastError = 'auth_key_duplicated';
+            this.pending.set(userId, p);
+            void p.client.disconnect().catch(() => undefined);
+            return;
+          }
 
-      phoneCode: async () => {
-        this.logger.log(
-          '[TG] phoneCode() callback entered (code was sent by Telegram)',
-        );
-        const code = await p.phoneCode.promise;
-        p.phoneCode = deferred<string>(); // allow retries if code wrong
-        return code;
-      },
+          p.status = 'error';
+          p.lastError = msg;
+          this.pending.set(userId, p);
+        },
+      });
 
-      password: async () => {
-        p.status = 'awaiting_password';
-        p.lastError = undefined;
-        this.pending.set(userId, p);
+      // если startPromise упал (не через onError) — зафиксируем
+      p.startPromise.catch((e: any) => {
+        const msg = String(e?.message ?? e);
 
-        const pass = await p.password.promise;
-        p.password = deferred<string>(); // allow retries
-        return pass;
-      },
-
-      onError: (err) => {
-        const msg = String((err as any)?.message ?? err);
-        this.logger.warn(`[TG] start onError: ${msg}`);
-
-        // TIMEOUT — шум gramjs, не считаем фатальным
         if (msg.includes('TIMEOUT')) {
-          this.logger.warn(`[TG] TIMEOUT ignored: ${msg}`);
+          this.logger.warn(`[TG] startPromise TIMEOUT ignored: ${msg}`);
           return;
         }
 
-        // FLOOD_WAIT
         const m = msg.match(/A wait of (\d+) seconds is required/i);
         if (m) {
           const seconds = Number(m[1] || 0);
@@ -355,72 +441,142 @@ export class TelegramService {
           return;
         }
 
+        if (msg.includes('AUTH_KEY_DUPLICATED')) {
+          p.status = 'error';
+          p.lastError = 'auth_key_dupliclicated';
+          this.pending.set(userId, p);
+          void p.client.disconnect().catch(() => undefined);
+          return;
+        }
+
         p.status = 'error';
         p.lastError = msg;
         this.pending.set(userId, p);
-      },
-    });
+        this.logger.warn(`[TG] startPromise failed: ${msg}`);
+      });
 
-    // если startPromise упал (не через onError) — зафиксируем
-    p.startPromise.catch((e: any) => {
-      const msg = String(e?.message ?? e);
-
-      if (msg.includes('TIMEOUT')) {
-        this.logger.warn(`[TG] startPromise TIMEOUT ignored: ${msg}`);
-        return;
-      }
-
-      const m = msg.match(/A wait of (\d+) seconds is required/i);
-      if (m) {
-        const seconds = Number(m[1] || 0);
-        p.status = 'awaiting_code';
-        p.lastError = `flood_wait_${seconds}`;
-        p.cooldownUntil = Date.now() + seconds * 1000;
-        this.pending.set(userId, p);
-        void p.client.disconnect().catch(() => undefined);
-        return;
-      }
-
-      p.status = 'error';
-      p.lastError = msg;
       this.pending.set(userId, p);
-      this.logger.warn(`[TG] startPromise failed: ${msg}`);
+      return { success: true, status: 'awaiting_code' as TgStatus };
     });
-
-    this.pending.set(userId, p);
-    return { success: true, status: 'awaiting_code' as TgStatus };
   }
 
   // ---------- auth confirm code ----------
   async confirmCode(userId: string, code: string) {
-    const p = this.pending.get(userId);
-    if (!p) return { success: false, message: 'auth_not_started' };
+    return this.withLock(userId, async () => {
+      const p = this.pending.get(userId);
+      if (!p) return { success: false, message: 'auth_not_started' };
 
-    // если floodwait ещё активен — не принимаем код и не дёргаем start
-    if (p.cooldownUntil && Date.now() < p.cooldownUntil) {
-      const left = Math.ceil((p.cooldownUntil - Date.now()) / 1000);
-      return {
-        success: false,
-        message: 'tg_flood_wait',
-        seconds: left,
-        status: p.status,
-      };
-    }
+      // если floodwait ещё активен — не принимаем код и не дёргаем start
+      if (p.cooldownUntil && Date.now() < p.cooldownUntil) {
+        const left = Math.ceil((p.cooldownUntil - Date.now()) / 1000);
+        return {
+          success: false,
+          message: 'tg_flood_wait',
+          seconds: left,
+          status: p.status,
+        };
+      }
 
-    const c = String(code || '').trim();
-    if (!c) return { success: false, message: 'code_required' };
+      const c = String(code || '').trim();
+      if (!c) return { success: false, message: 'code_required' };
 
-    try {
-      p.phoneCode.resolve(c);
+      try {
+        p.phoneCode.resolve(c);
 
-      // даём start() шанс завершиться / переключить статус на пароль
-      await Promise.race([
-        p.startPromise,
-        new Promise((res) => setTimeout(res, 400)),
-      ]);
+        // даём start() шанс завершиться / переключить статус на пароль
+        await Promise.race([
+          p.startPromise,
+          new Promise((res) => setTimeout(res, 400)),
+        ]);
 
-      const me = await p.client.getMe().catch(() => null);
-      if (me) {
+        const me = await p.client.getMe().catch(() => null);
+        if (me) {
+          const sessionStr = (p.client.session as any).save() as string;
+
+          const supabase = this.supabaseService.getClient();
+          await supabase
+            .from('users')
+            .update({ tg_session: sessionStr })
+            .eq('id', userId);
+
+          this.sessions.set(userId, p.client);
+          this.pending.delete(userId);
+
+          return { success: true, status: 'connected' as TgStatus };
+        }
+
+        return {
+          success: true,
+          status: p.status as TgStatus,
+          lastError: p.lastError || null,
+        };
+      } catch (e: any) {
+        const msg = String(e?.message ?? e);
+
+        if (msg.includes('PHONE_CODE_INVALID')) {
+          p.lastError = 'invalid_code';
+          this.pending.set(userId, p);
+          return { success: false, message: 'invalid_code' };
+        }
+        if (msg.includes('PHONE_CODE_EXPIRED')) {
+          p.lastError = 'code_expired';
+          this.pending.set(userId, p);
+          return { success: false, message: 'code_expired' };
+        }
+
+        const m = msg.match(/A wait of (\d+) seconds is required/i);
+        if (m) {
+          const seconds = Number(m[1] || 0);
+          p.status = 'awaiting_code';
+          p.lastError = `flood_wait_${seconds}`;
+          p.cooldownUntil = Date.now() + seconds * 1000;
+          this.pending.set(userId, p);
+          return { success: false, message: 'tg_flood_wait', seconds };
+        }
+
+        if (msg.includes('AUTH_KEY_DUPLICATED')) {
+          p.lastError = 'auth_key_duplicated';
+          p.status = 'error';
+          this.pending.set(userId, p);
+
+          // burn saved session so it won't auto-connect into a broken key
+          const supabase = this.supabaseService.getClient();
+          await supabase
+            .from('users')
+            .update({ tg_session: null })
+            .eq('id', userId);
+
+          return { success: false, message: 'tg_auth_key_duplicated' };
+        }
+
+        p.lastError = msg;
+        this.pending.set(userId, p);
+        return {
+          success: false,
+          message: 'tg_confirm_code_failed',
+          error: msg,
+        };
+      }
+    });
+  }
+
+  // ---------- auth confirm password (2FA) ----------
+  async confirmPassword(userId: string, password: string) {
+    return this.withLock(userId, async () => {
+      const p = this.pending.get(userId);
+      if (!p) return { success: false, message: 'auth_not_started' };
+
+      const pass = String(password || '').trim();
+      if (!pass) return { success: false, message: 'password_required' };
+
+      try {
+        p.password.resolve(pass);
+
+        await p.startPromise;
+
+        const me = await p.client.getMe().catch(() => null);
+        if (!me) throw new Error('tg_password_auth_failed');
+
         const sessionStr = (p.client.session as any).save() as string;
 
         const supabase = this.supabaseService.getClient();
@@ -433,109 +589,64 @@ export class TelegramService {
         this.pending.delete(userId);
 
         return { success: true, status: 'connected' as TgStatus };
-      }
+      } catch (e: any) {
+        const msg = String(e?.message ?? e);
 
-      return {
-        success: true,
-        status: p.status as TgStatus,
-        lastError: p.lastError || null,
-      };
-    } catch (e: any) {
-      const msg = String(e?.message ?? e);
+        const m = msg.match(/A wait of (\d+) seconds is required/i);
+        if (m) {
+          const seconds = Number(m[1] || 0);
+          p.status = 'awaiting_code';
+          p.lastError = `flood_wait_${seconds}`;
+          p.cooldownUntil = Date.now() + seconds * 1000;
+          this.pending.set(userId, p);
+          return { success: false, message: 'tg_flood_wait', seconds };
+        }
 
-      if (msg.includes('PHONE_CODE_INVALID')) {
-        p.lastError = 'invalid_code';
+        if (msg.includes('AUTH_KEY_DUPLICATED')) {
+          p.lastError = 'auth_key_duplicated';
+          p.status = 'error';
+          this.pending.set(userId, p);
+
+          const supabase = this.supabaseService.getClient();
+          await supabase
+            .from('users')
+            .update({ tg_session: null })
+            .eq('id', userId);
+
+          return { success: false, message: 'tg_auth_key_duplicated' };
+        }
+
+        p.lastError = msg;
+        p.status = 'awaiting_password';
         this.pending.set(userId, p);
-        return { success: false, message: 'invalid_code' };
+        return { success: false, message: 'tg_password_failed', error: msg };
       }
-      if (msg.includes('PHONE_CODE_EXPIRED')) {
-        p.lastError = 'code_expired';
-        this.pending.set(userId, p);
-        return { success: false, message: 'code_expired' };
-      }
-
-      const m = msg.match(/A wait of (\d+) seconds is required/i);
-      if (m) {
-        const seconds = Number(m[1] || 0);
-        p.status = 'awaiting_code';
-        p.lastError = `flood_wait_${seconds}`;
-        p.cooldownUntil = Date.now() + seconds * 1000;
-        this.pending.set(userId, p);
-        return { success: false, message: 'tg_flood_wait', seconds };
-      }
-
-      p.lastError = msg;
-      this.pending.set(userId, p);
-      return { success: false, message: 'tg_confirm_code_failed', error: msg };
-    }
-  }
-
-  // ---------- auth confirm password (2FA) ----------
-  async confirmPassword(userId: string, password: string) {
-    const p = this.pending.get(userId);
-    if (!p) return { success: false, message: 'auth_not_started' };
-
-    const pass = String(password || '').trim();
-    if (!pass) return { success: false, message: 'password_required' };
-
-    try {
-      p.password.resolve(pass);
-
-      await p.startPromise;
-
-      const me = await p.client.getMe().catch(() => null);
-      if (!me) throw new Error('tg_password_auth_failed');
-
-      const sessionStr = (p.client.session as any).save() as string;
-
-      const supabase = this.supabaseService.getClient();
-      await supabase
-        .from('users')
-        .update({ tg_session: sessionStr })
-        .eq('id', userId);
-
-      this.sessions.set(userId, p.client);
-      this.pending.delete(userId);
-
-      return { success: true, status: 'connected' as TgStatus };
-    } catch (e: any) {
-      const msg = String(e?.message ?? e);
-
-      const m = msg.match(/A wait of (\d+) seconds is required/i);
-      if (m) {
-        const seconds = Number(m[1] || 0);
-        p.status = 'awaiting_code';
-        p.lastError = `flood_wait_${seconds}`;
-        p.cooldownUntil = Date.now() + seconds * 1000;
-        this.pending.set(userId, p);
-        return { success: false, message: 'tg_flood_wait', seconds };
-      }
-
-      p.lastError = msg;
-      p.status = 'awaiting_password';
-      this.pending.set(userId, p);
-      return { success: false, message: 'tg_password_failed', error: msg };
-    }
+    });
   }
 
   async disconnect(userId: string) {
-    const c = this.sessions.get(userId);
-    if (c) {
-      await c.disconnect().catch(() => undefined);
-      this.sessions.delete(userId);
-    }
+    return this.withLock(userId, async () => {
+      const c = this.sessions.get(userId);
+      if (c) {
+        await c.disconnect().catch(() => undefined);
+        this.sessions.delete(userId);
+      }
 
-    const p = this.pending.get(userId);
-    if (p) {
-      await p.client.disconnect().catch(() => undefined);
-      this.pending.delete(userId);
-    }
+      const p = this.pending.get(userId);
+      if (p) {
+        await p.client.disconnect().catch(() => undefined);
+        this.pending.delete(userId);
+      }
 
-    // важно: иначе status() сразу подключит обратно
-    const supabase = this.supabaseService.getClient();
-    await supabase.from('users').update({ tg_session: null }).eq('id', userId);
+      // важно: иначе status() сразу подключит обратно
+      const supabase = this.supabaseService.getClient();
+      await supabase
+        .from('users')
+        .update({ tg_session: null })
+        .eq('id', userId);
 
-    return { success: true };
+      return { success: true };
+    });
   }
 
   // ---------- sync groups ----------
@@ -554,7 +665,11 @@ export class TelegramService {
         'Supabase select telegram_groups send_time error',
         timeErr as any,
       );
-      return { success: false, message: 'supabase_select_error', error: timeErr };
+      return {
+        success: false,
+        message: 'supabase_select_error',
+        error: timeErr,
+      };
     }
 
     const sendTimeMap = new Map(
@@ -778,27 +893,39 @@ export class TelegramService {
   private async getConnectedClient(
     userId: string,
   ): Promise<TelegramClient | null> {
-    const existing = this.sessions.get(userId);
-    if (existing) return existing;
+    // lock, so two parallel requests don't connect with same session
+    return this.withLock(userId, async () => {
+      const existing = this.sessions.get(userId);
+      if (existing) return existing;
 
-    const supabase = this.supabaseService.getClient();
-    const { data: user, error } = await supabase
-      .from('users')
-      .select('id, tg_session')
-      .eq('id', userId)
-      .maybeSingle();
+      const supabase = this.supabaseService.getClient();
+      const { data: user, error } = await supabase
+        .from('users')
+        .select('id, tg_session')
+        .eq('id', userId)
+        .maybeSingle();
 
-    if (error || !(user as any)?.tg_session) return null;
+      if (error || !(user as any)?.tg_session) return null;
 
-    try {
-      await this.connectFromSavedSession(
-        userId,
-        String((user as any).tg_session),
-      );
-      return this.sessions.get(userId) ?? null;
-    } catch (e: any) {
-      this.logger.warn(`TG auto-connect failed: ${e?.message ?? e}`);
-      return null;
-    }
+      try {
+        await this.connectFromSavedSession(
+          userId,
+          String((user as any).tg_session),
+        );
+        return this.sessions.get(userId) ?? null;
+      } catch (e: any) {
+        const msg = String(e?.message ?? e);
+        this.logger.warn(`TG auto-connect failed: ${msg}`);
+
+        if (msg.includes('AUTH_KEY_DUPLICATED')) {
+          await supabase
+            .from('users')
+            .update({ tg_session: null })
+            .eq('id', userId);
+        }
+
+        return null;
+      }
+    });
   }
 }

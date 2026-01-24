@@ -677,7 +677,7 @@ export class TelegramService implements OnModuleDestroy {
     const supabase = this.supabaseService.getClient();
     const { data: existingTimes, error: timeErr } = await supabase
       .from('telegram_groups')
-      .select('tg_chat_id, send_time')
+      .select('tg_chat_id, send_time, avatar_url')
       .eq('user_id', userId);
 
     if (timeErr) {
@@ -696,6 +696,12 @@ export class TelegramService implements OnModuleDestroy {
       (existingTimes ?? []).map((r: any) => [
         String(r.tg_chat_id),
         r.send_time,
+      ]),
+    );
+    const avatarMap = new Map(
+      (existingTimes ?? []).map((r: any) => [
+        String(r.tg_chat_id),
+        r.avatar_url,
       ]),
     );
 
@@ -773,6 +779,27 @@ export class TelegramService implements OnModuleDestroy {
           ? String(ent.accessHash)
           : null;
 
+      let avatarUrl = avatarMap.get(chatIdStr) ?? null;
+      if (!avatarUrl) {
+        try {
+          const photo = await client.downloadProfilePhoto(ent, {
+            isBig: true,
+          });
+          const buffer = Buffer.isBuffer(photo)
+            ? photo
+            : photo
+              ? Buffer.from(photo as any)
+              : null;
+          // Avoid storing huge blobs in DB.
+          if (buffer && buffer.length > 0 && buffer.length <= 2 * 1024 * 1024) {
+            avatarUrl = `data:image/jpeg;base64,${buffer.toString('base64')}`;
+          }
+        } catch (e: any) {
+          const msg = String(e?.message ?? e);
+          this.logger.warn(`TG get avatar failed ${chatIdStr}: ${msg}`);
+        }
+      }
+
       rows.push({
         user_id: userId,
         tg_chat_id: chatIdStr,
@@ -783,6 +810,7 @@ export class TelegramService implements OnModuleDestroy {
         is_selected: true,
         updated_at: nowIso,
         send_time: sendTimeMap.get(chatIdStr) ?? null,
+        avatar_url: avatarUrl,
       });
     }
 
@@ -803,7 +831,7 @@ export class TelegramService implements OnModuleDestroy {
     const { data, error } = await supabase
       .from('telegram_groups')
       .select(
-        'tg_chat_id, title, participants_count, is_selected, updated_at, send_time',
+        'tg_chat_id, title, participants_count, is_selected, updated_at, send_time, avatar_url',
       )
       .eq('user_id', userId)
       .order('updated_at', { ascending: false });

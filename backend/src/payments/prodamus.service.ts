@@ -28,6 +28,11 @@ export class ProdamusService {
     return this.secretKey;
   }
 
+  private getRestUrl(path: string): string {
+    const base = this.getBaseFormUrl();
+    return `${base}rest/${path}/`;
+  }
+
   /**
    * Приводим все значения к строкам (как требует дока)
    */
@@ -208,6 +213,47 @@ export class ProdamusService {
     } catch {}
 
     return payformUrl;
+  }
+
+  async setSubscriptionActivity(params: {
+    subscriptionId: string;
+    customerEmail?: string;
+    customerPhone?: string;
+    activeUser?: boolean;
+    activeManager?: boolean;
+  }): Promise<{ ok: boolean; status: number; body: string }> {
+    this.assertConfig();
+
+    const data: AnyObj = {
+      subscription: params.subscriptionId,
+      ...(params.customerEmail ? { customer_email: params.customerEmail } : {}),
+      ...(params.customerPhone ? { customer_phone: params.customerPhone } : {}),
+      ...(typeof params.activeUser === 'boolean'
+        ? { active_user: params.activeUser ? 1 : 0 }
+        : {}),
+      ...(typeof params.activeManager === 'boolean'
+        ? { active_manager: params.activeManager ? 1 : 0 }
+        : {}),
+    };
+
+    const signature = this.sign(data);
+    const body = new URLSearchParams({
+      ...Object.fromEntries(
+        Object.entries(data).map(([k, v]) => [k, String(v)]),
+      ),
+      signature,
+    });
+
+    const url = this.getRestUrl('setActivity');
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body,
+    });
+    const text = await res.text();
+    const ok = res.ok && /success/i.test(text);
+
+    return { ok, status: res.status, body: text };
   }
 }
 

@@ -1,4 +1,4 @@
-.page {
+﻿.page {
   min-height: 100vh;
   padding: 48px 16px 80px;
   background: #ffffff;
@@ -12,6 +12,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
+  margin: 0 auto;
 }
 
 .title {
@@ -37,33 +38,31 @@
   margin-bottom: 26px;
 }
 
-.searchInput /*:global(.ant-input)*/ {
+.searchInput {
   height: 46px;
   border-radius: 10px;
-  background: #F7F5D3;
+  background: #f7f5d3;
   border: none;
   padding: none;
   box-shadow: none;
 }
 
-.searchInput:hover{
-  background: #F7F5D3;
-
+.searchInput:hover {
+  background: #f7f5d3;
 }
 
 .table :global(.ant-empty) {
   display: flex;
   flex-direction: column;
-  align-items: center;   /* горизонтально */
-  justify-content: center; /* вертикально */
-  min-height: 220px;     /* чтобы было где центрировать */
+  align-items: center;
+  justify-content: center;
+  min-height: 220px;
 }
 
 .table :global(.ant-empty-description) {
   margin-top: 8px;
   font-size: 16px;
 }
-
 
 .searchIcon {
   position: absolute;
@@ -100,7 +99,6 @@
   margin-top: 12px;
 }
 
-/* Антд Table превращаем в "список карточек" */
 .table :global(.ant-table) {
   background: transparent;
 }
@@ -110,66 +108,37 @@
 }
 
 .table :global(.ant-table-thead) {
-  display: none; /* убираем шапку, как на макете */
+  display: none;
 }
 
 .table :global(.ant-table-tbody) {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  width: 519px;
+  width: 100%;
+  max-width: 520px;
+  margin: 0 auto;
 }
 
-/* строка -> карточка */
 .table :global(.ant-table-tbody > tr) {
   position: relative;
   display: flex;
-  gap: 10px;
-  justify-content: space-between;
   width: 100%;
-  /*grid-template-columns: 1fr 460px; *//* название + чекбокс справа */
-  align-items: center;
   background: #ffffff;
   border-radius: 12px;
   border: 1px solid #efecc0;
-  height: 46px;
-  padding: 0 10px 0 16px;
+  min-height: 46px;
+  padding: 8px 12px;
 }
 
-/* убираем “табличные” бордеры */
 .table :global(.ant-table-tbody > tr > td) {
   border-bottom: none !important;
   padding: 0 !important;
   background: transparent !important;
+  width: 100%;
+  display: block;
 }
 
-/* скрываем лишние колонки (chat id / flags, participants) */
-.table :global(.ant-table-tbody > tr > td:nth-child(3)),
-.table :global(.ant-table-tbody > tr > td:nth-child(5)),
-.table :global(.ant-table-tbody > tr > td:nth-child(6)) {
-  display: none;
-}
-
-/* фиксируем видимость колонки времени */
-.table :global(.ant-table-tbody > tr > td:nth-child(4)) {
-  display: flex;
-  align-items: center;
-}
-
-/* делаем “Название группы” серым, как в макете */
-.table :global(.ant-table-tbody > tr > td:nth-child(2)) {
-  color: #7a7a7a;
-  font-size: 14px;
-  position: static;
-  right: auto;
-  display: flex;
-  align-items: center;
-  min-width: 24px;
-  flex: 0 0 auto;
-  order: -1;
-}
-
-/* чекбокс в виде маленького квадрата справа */
 .table :global(.ant-checkbox-inner) {
   width: 18px;
   height: 18px;
@@ -178,7 +147,6 @@
   border-color: #f2dd6a;
 }
 
-/* галка белая */
 .table :global(.ant-checkbox-checked .ant-checkbox-inner::after) {
   border-color: #ffffff;
 }
@@ -199,4 +167,67 @@
   background: transparent;
   color: #2f2f2f;
   font-weight: 600;
+}
+
+.rowContent {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.rowLeft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #f3f3f3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  border: 1px solid #e6e6e6;
+}
+
+.avatarImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatarFallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 700;
+  color: #5a5a5a;
+  background: #f0f0f0;
+}
+
+.rowTitle {
+  font-size: 14px;
+  color: #2f2f2f;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.intervalSelect {
+  width: 170px;
+  flex: 0 0 auto;
+  margin-left: auto;
+  margin-right: 6px;
 }

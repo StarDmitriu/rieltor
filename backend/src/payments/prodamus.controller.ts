@@ -12,18 +12,10 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { SupabaseService } from '../supabase/supabase.service';
 import { ProdamusService } from './prodamus.service';
 import { AnyFilesInterceptor } from '@nestjs/platform-express';
-
-const PRODAMUS_SUBSCRIPTION_IDS: Record<string, string> = {
-  wa: '2718625',
-  tg: '2718627',
-  wa_tg: '2718628',
-};
-
-const PLAN_BY_SUBSCRIPTION_ID: Record<string, string> = {
-  '2718625': 'wa',
-  '2718627': 'tg',
-  '2718628': 'wa_tg',
-};
+import {
+  PLAN_BY_SUBSCRIPTION_ID,
+  PRODAMUS_SUBSCRIPTION_IDS,
+} from './prodamus.constants';
 
 @Controller('payments/prodamus')
 export class ProdamusController {

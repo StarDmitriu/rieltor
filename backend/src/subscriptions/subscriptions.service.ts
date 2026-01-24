@@ -29,7 +29,7 @@ export class SubscriptionsService {
 
     const { data: user, error: uErr } = await supabase
       .from('users')
-      .select('id,is_blocked')
+      .select('id,is_blocked,phone,email')
       .eq('id', userId)
       .maybeSingle();
     if (uErr) throw new Error(`supabase_users_error:${uErr.message}`);

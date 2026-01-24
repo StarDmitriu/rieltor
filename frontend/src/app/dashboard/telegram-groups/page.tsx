@@ -23,6 +23,7 @@ type TgGroupRow = {
 	updated_at: string
 	is_selected?: boolean | null
 	send_time?: string | null
+	avatar_url?: string | null
 }
 
 const SEND_INTERVAL_OPTIONS = [
@@ -224,64 +225,49 @@ export default function TelegramGroupsPage() {
 
 	const columns: ColumnsType<TgGroupRow> = [
 		{
-			title: 'Название',
-			dataIndex: 'title',
-			key: 'title',
-			render: (v: string | null) =>
-				v || <span style={{ opacity: 0.6 }}>без названия</span>,
-		},
-		{
-			title: 'В рассылку',
-			key: 'is_selected',
-			width: 110,
+			title: 'Группа',
+			key: 'group',
 			render: (_: any, row: TgGroupRow) => {
 				const checked = row.is_selected !== false
 				const busy = !!savingMap[row.tg_chat_id]
+				const name = row.title || 'без названия'
+				const initial = name.trim().charAt(0).toUpperCase()
+
 				return (
-					<Checkbox
-						disabled={busy}
-						checked={checked}
-						onChange={e => setSelected(row.tg_chat_id, e.target.checked)}
-					/>
+					<div className={styles.rowContent}>
+						<div className={styles.rowLeft}>
+							<Checkbox
+								disabled={busy}
+								checked={checked}
+								onChange={e => setSelected(row.tg_chat_id, e.target.checked)}
+							/>
+							<div className={styles.avatar}>
+								{row.avatar_url ? (
+									<img
+										className={styles.avatarImg}
+										src={row.avatar_url}
+										alt={name}
+									/>
+								) : (
+									<div className={styles.avatarFallback}>{initial}</div>
+								)}
+							</div>
+							<div className={styles.rowTitle}>{name}</div>
+						</div>
+
+						<Select
+							allowClear
+							placeholder='Интервал'
+							size='small'
+							className={styles.intervalSelect}
+							value={row.send_time ?? undefined}
+							options={SEND_INTERVAL_OPTIONS}
+							disabled={!!savingTimeMap[row.tg_chat_id]}
+							onChange={v => setSendTime(row.tg_chat_id, v ?? null)}
+						/>
+					</div>
 				)
 			},
-		},
-		{
-			title: 'Chat ID',
-			dataIndex: 'tg_chat_id',
-			key: 'tg_chat_id',
-			render: (v: string) => <code style={{ fontSize: 12 }}>{v}</code>,
-		},
-		{
-			title: 'Интервал',
-			key: 'send_time',
-			width: 200,
-			render: (_: any, row: TgGroupRow) => (
-				<Select
-					allowClear
-					placeholder='Интервал'
-					size='small'
-					style={{ width: 170 }}
-					value={row.send_time ?? undefined}
-					options={SEND_INTERVAL_OPTIONS}
-					disabled={!!savingTimeMap[row.tg_chat_id]}
-					onChange={v => setSendTime(row.tg_chat_id, v ?? null)}
-				/>
-			),
-		},
-		{
-			title: 'Участники',
-			dataIndex: 'participants_count',
-			key: 'participants_count',
-			width: 120,
-			render: (v: number | null) => (typeof v === 'number' ? v : '-'),
-		},
-		{
-			title: 'Обновлено',
-			dataIndex: 'updated_at',
-			key: 'updated_at',
-			width: 190,
-			render: (v: string) => new Date(v).toLocaleString(),
 		},
 	]
 

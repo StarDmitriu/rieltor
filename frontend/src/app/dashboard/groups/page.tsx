@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Cookies from 'js-cookie'
-import { Button, Table, message, Space, Tag, Checkbox, Input, Select } from 'antd'
+import { Button, Table, message, Space, Checkbox, Input, Select } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { useRouter } from 'next/navigation'
 import styles from '../telegram-groups/telegram-groups.module.css' // <-- берем те же стили
@@ -239,63 +239,35 @@ export default function GroupsPage() {
 
 	const columns: ColumnsType<GroupRow> = [
 		{
-			title: 'Название группы',
-			dataIndex: 'subject',
-			key: 'subject',
-			render: (v: string | null) =>
-				v || <span style={{ opacity: 0.6 }}>без названия</span>,
-		},
-		{
-			title: '',
-			key: 'pick',
-			width: 90,
-			align: 'center',
+			title: 'Группа',
+			key: 'group',
 			render: (_: any, row: GroupRow) => {
 				const checked = row.is_selected !== false
 				const busy = !!savingMap[row.wa_group_id]
+				const name = row.subject || 'без названия'
 				return (
-					<Checkbox
-						checked={checked}
-						disabled={busy || !!row.is_announcement}
-						onChange={e => setSelected(row.wa_group_id, e.target.checked)}
-					/>
+					<div className={styles.rowContent}>
+						<div className={styles.rowLeft}>
+							<Checkbox
+								checked={checked}
+								disabled={busy || !!row.is_announcement}
+								onChange={e => setSelected(row.wa_group_id, e.target.checked)}
+							/>
+							<div className={styles.rowTitle}>{name}</div>
+						</div>
+						<Select
+							allowClear
+							placeholder='Интервал'
+							size='small'
+							className={styles.intervalSelect}
+							value={row.send_time ?? undefined}
+							options={SEND_INTERVAL_OPTIONS}
+							disabled={!!savingTimeMap[row.wa_group_id]}
+							onChange={v => setSendTime(row.wa_group_id, v ?? null)}
+						/>
+					</div>
 				)
 			},
-		},
-		{
-			title: 'Тип',
-			key: 'flags',
-			width: 220,
-			render: (_: any, row: GroupRow) => (
-				<Space size={6}>
-					{row.is_announcement ? <Tag color='gold'>announce</Tag> : null}
-					{row.is_restricted ? <Tag color='red'>restricted</Tag> : null}
-				</Space>
-			),
-		},
-		{
-			title: 'Интервал',
-			key: 'send_time',
-			width: 200,
-			render: (_: any, row: GroupRow) => (
-				<Select
-					allowClear
-					placeholder='Интервал'
-					size='small'
-					style={{ width: 170 }}
-					value={row.send_time ?? undefined}
-					options={SEND_INTERVAL_OPTIONS}
-					disabled={!!savingTimeMap[row.wa_group_id]}
-					onChange={v => setSendTime(row.wa_group_id, v ?? null)}
-				/>
-			),
-		},
-		{
-			title: 'Участники',
-			dataIndex: 'participants_count',
-			key: 'participants_count',
-			width: 120,
-			render: (v: number | null) => (typeof v === 'number' ? v : '-'),
 		},
 	]
 

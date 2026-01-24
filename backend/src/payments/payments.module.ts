@@ -7,5 +7,6 @@ import { ProdamusService } from './prodamus.service';
   imports: [SupabaseModule],
   controllers: [ProdamusController],
   providers: [ProdamusService],
+  exports: [ProdamusService],
 })
 export class PaymentsModule {}

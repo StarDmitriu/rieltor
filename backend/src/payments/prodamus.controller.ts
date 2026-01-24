@@ -101,7 +101,7 @@ export class ProdamusController {
       orderId: internalOrderId,
       customerPhone: user.phone || undefined,
       customerEmail: user.email || undefined,
-      customerExtra: `user_id=${userId}`,
+      customerExtra: `user_id=${userId};payment_id=${payment.id};plan_code=${planCode}`,
       productName: plan.productName,
       productPrice: amountRub,
       quantity: 1,
@@ -155,10 +155,32 @@ export class ProdamusController {
 
     // По доке:
     // order_id = ID заказа в Prodamus
+    const parseCustomerExtra = (value: string) => {
+      const result: Record<string, string> = {};
+      if (!value) return result;
+      value
+        .split(/[;&]/)
+        .map((part) => part.trim())
+        .filter(Boolean)
+        .forEach((part) => {
+          const [rawKey, rawValue] = part.split('=');
+          if (!rawKey) return;
+          const key = decodeURIComponent(rawKey.trim());
+          const val = decodeURIComponent((rawValue ?? '').trim());
+          result[key] = val;
+        });
+      return result;
+    };
+
+    const customerExtraRaw = String(
+      expanded?.customer_extra || expanded?.submit?.customer_extra || '',
+    ).trim();
+    const customerExtra = parseCustomerExtra(customerExtraRaw);
+
     // order_num = номер заказа на стороне магазина
     const orderNum = String(
       expanded?.order_num || expanded?.submit?.order_num || '',
-    ).trim(); // это наш internal id
+    ).trim(); // ��� ��� internal id
     const prodamusOrderId = String(
       expanded?.order_id || expanded?.submit?.order_id || '',
     ).trim();
@@ -167,9 +189,11 @@ export class ProdamusController {
       ? orderNum.split('|')[1]
       : null;
     const allowedPlans = new Set(['wa', 'tg', 'wa_tg']);
-    const planCode = allowedPlans.has(String(planCodeFromOrder || ''))
-      ? String(planCodeFromOrder)
-      : 'wa_tg'; // это их id
+    const planCodeCandidate =
+      planCodeFromOrder || customerExtra.plan_code || '';
+    const planCode = allowedPlans.has(String(planCodeCandidate))
+      ? String(planCodeCandidate)
+      : 'wa_tg'; // ��� id
 
     const paymentStatus = String(expanded?.payment_status || '').trim(); // success | order_canceled | ...
     const sum = String(expanded?.sum || '').trim();
@@ -186,6 +210,15 @@ export class ProdamusController {
         .eq('order_id', orderNum)
         .maybeSingle();
       if (!error) paymentRow = data;
+    }
+
+    if (!paymentRow && customerExtra.payment_id) {
+      const { data } = await supabase
+        .from('payments')
+        .select('*')
+        .eq('id', customerExtra.payment_id)
+        .maybeSingle();
+      paymentRow = data;
     }
 
     // fallback: иногда order_num может отсутствовать; попробуем по raw order_id (если вы так будете отправлять)
@@ -269,6 +302,9 @@ export class ProdamusController {
     return { success: true };
   }
 }
+
+
+
 
 
 

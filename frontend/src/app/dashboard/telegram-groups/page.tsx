@@ -50,6 +50,7 @@ export default function TelegramGroupsPage() {
 	)
 	const [groups, setGroups] = useState<TgGroupRow[]>([])
 	const [q, setQ] = useState('')
+	const [autoSynced, setAutoSynced] = useState(false)
 	const router = useRouter()
 
 
@@ -217,7 +218,12 @@ export default function TelegramGroupsPage() {
 	}, [token])
 
 	useEffect(() => {
-		if (userId) fetchGroups(userId)
+		if (!userId) return
+		fetchGroups(userId)
+		if (!autoSynced) {
+			setAutoSynced(true)
+			syncGroups()
+		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [userId])
 

@@ -58,6 +58,7 @@ export default function GroupsPage() {
 	)
 	const [groups, setGroups] = useState<GroupRow[]>([])
 	const [q, setQ] = useState('')
+	const [autoSynced, setAutoSynced] = useState(false)
 
 	const token = Cookies.get('token') || ''
 
@@ -224,7 +225,12 @@ export default function GroupsPage() {
 	}, [token])
 
 	useEffect(() => {
-		if (userId) fetchGroups(userId)
+		if (!userId) return
+		fetchGroups(userId)
+		if (!autoSynced) {
+			setAutoSynced(true)
+			syncGroups()
+		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [userId])
 

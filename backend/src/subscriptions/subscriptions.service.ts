@@ -148,6 +148,7 @@ export class SubscriptionsService {
       return { success: false, message: 'supabase_upsert_error', error };
 
     return { success: true, subscription: data };
+  }
 
   async setCancelAtPeriodEnd(userId: string, cancelAtPeriodEnd: boolean) {
     const supabase = this.supabaseService.getClient();
@@ -168,7 +169,6 @@ export class SubscriptionsService {
     if (!data) return { success: false, message: 'subscription_not_found' };
 
     return { success: true, subscription: data };
-  }
   }
 
   // Главная функция для защиты доступа

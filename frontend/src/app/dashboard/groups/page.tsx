@@ -2,9 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Cookies from 'js-cookie'
-import { Button, Table, message, Space, Tag, Checkbox, Input, TimePicker } from 'antd'
+import { Button, Table, message, Space, Tag, Checkbox, Input, Select } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
-import dayjs from 'dayjs'
 import { useRouter } from 'next/navigation'
 import styles from '../telegram-groups/telegram-groups.module.css' // <-- берем те же стили
 
@@ -32,6 +31,19 @@ type GroupRow = {
 type GroupsResponse =
 	| { success: true; groups: GroupRow[] }
 	| { success: false; message: string }
+
+const SEND_INTERVAL_OPTIONS = [
+	{ value: '2-5m', label: '2-5 минут' },
+	{ value: '5-15m', label: '5-15 минут' },
+	{ value: '15-30m', label: '15-30 минут' },
+	{ value: '30-60m', label: '30-60 минут' },
+	{ value: '1-2h', label: '1-2 часа' },
+	{ value: '2-4h', label: '2-4 часа' },
+	{ value: '6h', label: 'раз в 6 часов' },
+	{ value: '6-12h', label: '6-12 часов' },
+	{ value: '12h', label: 'раз в 12 часов' },
+	{ value: '24h', label: 'раз в 24 часа' },
+]
 
 export default function GroupsPage() {
 	const router = useRouter()
@@ -185,12 +197,12 @@ export default function GroupsPage() {
 			const json = await res.json()
 			if (!json?.success) {
 				message.error(
-					`Не удалось сохранить время группы: ${json?.message || 'unknown'}`
+					`Не удалось сохранить интервал группы: ${json?.message || 'unknown'}`
 				)
 			}
 		} catch (e) {
 			console.error(e)
-			message.error('Ошибка сети при сохранении времени группы')
+			message.error('Ошибка сети при сохранении интервала группы')
 		} finally {
 			setSavingTimeMap(prev => ({ ...prev, [waGroupId]: false }))
 		}
@@ -262,21 +274,19 @@ export default function GroupsPage() {
 			),
 		},
 		{
-			title: 'Время',
+			title: 'Интервал',
 			key: 'send_time',
-			width: 140,
+			width: 200,
 			render: (_: any, row: GroupRow) => (
-				<TimePicker
+				<Select
 					allowClear
-					placeholder='Время'
+					placeholder='Интервал'
 					size='small'
-					style={{ width: 90 }}
-					format='HH:mm'
-					value={row.send_time ? dayjs(row.send_time, 'HH:mm') : null}
+					style={{ width: 170 }}
+					value={row.send_time ?? undefined}
+					options={SEND_INTERVAL_OPTIONS}
 					disabled={!!savingTimeMap[row.wa_group_id]}
-					onChange={v =>
-						setSendTime(row.wa_group_id, v ? v.format('HH:mm') : null)
-					}
+					onChange={v => setSendTime(row.wa_group_id, v ?? null)}
 				/>
 			),
 		},

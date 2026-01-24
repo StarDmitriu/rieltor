@@ -41,10 +41,23 @@ function normalizePhone(raw: string) {
   return s;
 }
 
-function normalizeSendTime(v: any): string | null {
+const SEND_INTERVAL_KEYS = new Set([
+  '2-5m',
+  '5-15m',
+  '15-30m',
+  '30-60m',
+  '1-2h',
+  '2-4h',
+  '6h',
+  '6-12h',
+  '12h',
+  '24h',
+]);
+
+function normalizeSendInterval(v: any): string | null {
   const s = String(v || '').trim();
   if (!s) return null;
-  return /^([01]\d|2[0-3]):[0-5]\d$/.test(s) ? s : null;
+  return SEND_INTERVAL_KEYS.has(s) ? s : null;
 }
 
 type PendingAuth = {
@@ -237,24 +250,31 @@ export class TelegramService implements OnModuleDestroy {
 
   private async connectFromSavedSession(userId: string, sessionStr: string) {
     return this.withLock(userId, async () => {
-      // maybe already connected while we waited for lock
-      if (this.sessions.has(userId)) return;
-
-      const session = new StringSession(sessionStr);
-      const client = new TelegramClient(session, this.apiId(), this.apiHash(), {
-        connectionRetries: 5,
-        retryDelay: 1000,
-      });
-
-      await client.connect();
-      const me = await client.getMe().catch(() => null);
-      if (!me) {
-        await client.disconnect().catch(() => undefined);
-        throw new Error('tg_saved_session_invalid');
-      }
-
-      this.sessions.set(userId, client);
+      await this.connectFromSavedSessionNoLock(userId, sessionStr);
     });
+  }
+
+  private async connectFromSavedSessionNoLock(
+    userId: string,
+    sessionStr: string,
+  ) {
+    // maybe already connected while we waited for lock
+    if (this.sessions.has(userId)) return;
+
+    const session = new StringSession(sessionStr);
+    const client = new TelegramClient(session, this.apiId(), this.apiHash(), {
+      connectionRetries: 5,
+      retryDelay: 1000,
+    });
+
+    await client.connect();
+    const me = await client.getMe().catch(() => null);
+    if (!me) {
+      await client.disconnect().catch(() => undefined);
+      throw new Error('tg_saved_session_invalid');
+    }
+
+    this.sessions.set(userId, client);
   }
 
   // ---------- auth start (send code) ----------
@@ -796,7 +816,7 @@ export class TelegramService implements OnModuleDestroy {
   }) {
     const supabase = this.supabaseService.getClient();
     const { userId, tgChatId, sendTime } = params;
-    const normalized = normalizeSendTime(sendTime);
+    const normalized = normalizeSendInterval(sendTime);
 
     const { data, error } = await supabase
       .from('telegram_groups')
@@ -908,7 +928,7 @@ export class TelegramService implements OnModuleDestroy {
       if (error || !(user as any)?.tg_session) return null;
 
       try {
-        await this.connectFromSavedSession(
+        await this.connectFromSavedSessionNoLock(
           userId,
           String((user as any).tg_session),
         );

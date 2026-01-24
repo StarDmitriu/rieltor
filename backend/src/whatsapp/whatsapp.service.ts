@@ -52,10 +52,23 @@ async function fetchWithTimeout(url: string, timeoutMs: number) {
   }
 }
 
-function normalizeSendTime(v: any): string | null {
+const SEND_INTERVAL_KEYS = new Set([
+  '2-5m',
+  '5-15m',
+  '15-30m',
+  '30-60m',
+  '1-2h',
+  '2-4h',
+  '6h',
+  '6-12h',
+  '12h',
+  '24h',
+]);
+
+function normalizeSendInterval(v: any): string | null {
   const s = String(v || '').trim();
   if (!s) return null;
-  return /^([01]\d|2[0-3]):[0-5]\d$/.test(s) ? s : null;
+  return SEND_INTERVAL_KEYS.has(s) ? s : null;
 }
 
 
@@ -272,7 +285,7 @@ export class WhatsappService {
     sendTime: string | null;
   }) {
     const { userId, waGroupId, sendTime } = params;
-    const normalized = normalizeSendTime(sendTime);
+    const normalized = normalizeSendInterval(sendTime);
 
     const { data, error } = await this.supabase
       .from('whatsapp_groups')
@@ -333,7 +346,7 @@ export class WhatsappService {
       if (!res.ok) {
         // ✅ если медиа не скачалось — отправим хотя бы текст
         await s.sock.sendMessage(groupJid, { text });
-        throw new Error(`media_download_failed status=${res.status}`);
+        return;
       }
 
       contentType = (res.headers.get('content-type') || '').toLowerCase();
@@ -344,9 +357,7 @@ export class WhatsappService {
       // ✅ если пришёл HTML или слишком маленький файл — это почти точно не картинка
       if (contentType.includes('text/html') || buf.length < 2000) {
         await s.sock.sendMessage(groupJid, { text });
-        throw new Error(
-          `media_not_a_file contentType=${contentType} size=${buf.length}`,
-        );
+        return;
       }
     } finally {
       clearTimeout(timeout);
@@ -387,7 +398,7 @@ export class WhatsappService {
 
     // ✅ если тип непонятен — отправим текст, а не “левый документ”
     await s.sock.sendMessage(groupJid, { text });
-    throw new Error(`unsupported_media_type contentType=${contentType}`);
+    return;
   }
 
   private async startInternal(userId: string) {

@@ -146,12 +146,15 @@ export class ProdamusService {
 
     console.log('SECRET:', JSON.stringify(process.env.PRODAMUS_SECRET_KEY));
     const dataForSign: AnyObj = {
-      do: 'link',
       sys: this.sys,
       order_num: params.orderId,
-      customer_phone: params.customerPhone || '',
-      customer_email: params.customerEmail || '',
-      customer_extra: params.customerExtra || '',
+      callbackType: 'json',
+      do: 'link',
+
+      ...(params.customerPhone ? { customer_phone: params.customerPhone } : {}),
+      ...(params.customerEmail ? { customer_email: params.customerEmail } : {}),
+      ...(params.customerExtra ? { customer_extra: params.customerExtra } : {}),
+
       products: [
         {
           name: params.productName,
@@ -161,14 +164,16 @@ export class ProdamusService {
       ],
     };
 
+
     const signature = this.sign(dataForSign);
 
     // В URL кладём "плоско", как принимает Payform
     const q = new URLSearchParams();
-    q.set('do', 'link');
-    q.set('sys', this.sys);   
+    q.set('sys', this.sys);
     //q.set('order_id', params.orderId);
     q.set('order_num', params.orderId);
+    q.set('callbackType', 'json');
+    q.set('do', 'link');
 
     if (params.customerPhone) q.set('customer_phone', params.customerPhone);
     if (params.customerEmail) q.set('customer_email', params.customerEmail);
@@ -180,6 +185,27 @@ export class ProdamusService {
 
     q.set('signature', signature);
 
-    return `${base}?${q.toString()}`;
+    const fullUrl = `${base}?${q.toString()}`;
+    console.log('PAYFORM REQUEST URL:', fullUrl);
+    return fullUrl;
+  }
+
+  async resolvePaymentLink(payformUrl: string): Promise<string> {
+    try {
+      const res = await fetch(payformUrl, { method: 'GET', redirect: 'follow' });
+      const text = await res.text().catch(() => '');
+      const trimmed = (text || '').trim();
+
+      if (/^https?:\/\//i.test(trimmed)) return trimmed;
+
+      const m = trimmed.match(/https?:\/\/\S+/i);
+      if (m?.[0]) return m[0];
+
+      if (res.url && res.url !== payformUrl) return res.url;
+    } catch {}
+
+    return payformUrl;
   }
 }
+
+

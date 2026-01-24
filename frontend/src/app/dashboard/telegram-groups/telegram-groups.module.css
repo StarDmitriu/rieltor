@@ -122,6 +122,7 @@
 
 /* строка -> карточка */
 .table :global(.ant-table-tbody > tr) {
+  position: relative;
   display: flex;
   gap: 10px;
   justify-content: space-between;
@@ -159,6 +160,13 @@
 .table :global(.ant-table-tbody > tr > td:nth-child(2)) {
   color: #7a7a7a;
   font-size: 14px;
+  position: static;
+  right: auto;
+  display: flex;
+  align-items: center;
+  min-width: 24px;
+  flex: 0 0 auto;
+  order: -1;
 }
 
 /* чекбокс в виде маленького квадрата справа */

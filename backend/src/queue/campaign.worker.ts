@@ -52,7 +52,7 @@ export class CampaignBullWorker implements OnModuleInit, OnModuleDestroy {
     this.logger.warn('### WORKER VERSION: 2026-01-03 channel-routing-fix ###');
     this.worker = new Worker<SendJobData>(
       'campaign-send',
-      async (job: Job<SendJobData>) => this.process(job.data),
+      async (job: Job<SendJobData>) => this.process(job),
       {
         connection: this.queueService.connectionOptions as any,
         concurrency: 1,
@@ -74,7 +74,8 @@ export class CampaignBullWorker implements OnModuleInit, OnModuleDestroy {
     await this.worker?.close();
   }
 
-  private async process(data: SendJobData) {
+  private async process(job: Job<SendJobData>) {
+    const data = job.data;
     const supabase = this.supabaseService.getClient();
 
     const { data: dbJob, error: jobErr } = await supabase
@@ -202,12 +203,17 @@ export class CampaignBullWorker implements OnModuleInit, OnModuleDestroy {
         })
         .eq('id', dbJob.id);
     } catch (e: any) {
+      const msg = e?.message ?? String(e);
+      const attempts = Number(job.opts.attempts || 1);
+      const attemptNum = Number(job.attemptsMade || 0) + 1;
+      const isLastAttempt = attemptNum >= attempts;
+
       await supabase
         .from('campaign_jobs')
         .update({
-          status: 'failed',
-          error: e?.message ?? String(e),
-          sent_at: new Date().toISOString(),
+          status: isLastAttempt ? 'failed' : 'pending',
+          error: msg,
+          sent_at: isLastAttempt ? new Date().toISOString() : null,
         })
         .eq('id', dbJob.id);
 

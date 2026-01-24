@@ -1,4 +1,4 @@
-//frontend/src/app/dashboard/campaign/page.tsx
+﻿//frontend/src/app/dashboard/campaign/page.tsx
 'use client'
 
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
@@ -52,7 +52,19 @@ function pickErrorText(obj: any) {
 }
 
 function StatusTag({ done }: { done: boolean }) {
-	return done ? <Tag color='green'>done</Tag> : <Tag color='blue'>running</Tag>
+	return done ? (
+		<Tag color='green'>завершена</Tag>
+	) : (
+		<Tag color='blue'>выполняется</Tag>
+	)
+}
+
+const STATUS_LABELS: Record<Job['status'], { text: string; color?: string }> = {
+	sent: { text: 'отправлено', color: 'green' },
+	failed: { text: 'ошибка', color: 'red' },
+	processing: { text: 'отправляется', color: 'blue' },
+	skipped: { text: 'пропущено' },
+	pending: { text: 'в ожидании', color: 'gold' },
 }
 
 function CampaignInner() {
@@ -72,6 +84,9 @@ function CampaignInner() {
 	const [loading, setLoading] = useState(false)
 	const [wa, setWa] = useState<ProgressResponse | null>(null)
 	const [tg, setTg] = useState<ProgressResponse | null>(null)
+	const [groupMapWa, setGroupMapWa] = useState<Record<string, string>>({})
+	const [groupMapTg, setGroupMapTg] = useState<Record<string, string>>({})
+	const [templateMap, setTemplateMap] = useState<Record<string, string>>({})
 
 	const POLL_MS = 5000
 	const timerRef = useRef<number | null>(null)
@@ -102,6 +117,48 @@ function CampaignInner() {
 		}
 	}
 
+	const loadNames = async () => {
+		const me = await apiGet('/auth/me')
+		if (!me?.success || !me?.user?.id) return
+		const uid = String(me.user.id)
+
+		const [waGroups, tgGroups, templates] = await Promise.all([
+			apiGet(`/whatsapp/groups/${uid}`),
+			apiGet(`/telegram/groups/${uid}`),
+			apiGet(`/templates/list/${uid}`),
+		])
+
+		if (waGroups?.success) {
+			const map: Record<string, string> = {}
+			for (const g of waGroups.groups || []) {
+				const id = String(g.wa_group_id || '')
+				if (!id) continue
+				map[id] = g.subject || id
+			}
+			setGroupMapWa(map)
+		}
+
+		if (tgGroups?.success) {
+			const map: Record<string, string> = {}
+			for (const g of tgGroups.groups || []) {
+				const id = String(g.tg_chat_id || '')
+				if (!id) continue
+				map[id] = g.title || id
+			}
+			setGroupMapTg(map)
+		}
+
+		if (templates?.success) {
+			const map: Record<string, string> = {}
+			for (const t of templates.templates || []) {
+				const id = String(t.id || '')
+				if (!id) continue
+				map[id] = t.title || id
+			}
+			setTemplateMap(map)
+		}
+	}
+
 	const startPolling = () => {
 		stopPolling()
 		timerRef.current = window.setInterval(load, POLL_MS)
@@ -129,34 +186,44 @@ function CampaignInner() {
 
 	useEffect(() => {
 		load()
+		loadNames()
 		startPolling()
 		return () => stopPolling()
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [effectiveWa, effectiveTg])
 
-	const columns: ColumnsType<Job> = [
-		{ title: 'Group', dataIndex: 'group_jid', key: 'group_jid' },
-		{ title: 'Template', dataIndex: 'template_id', key: 'template_id' },
+	const buildColumns = (
+		groupMap: Record<string, string>
+	): ColumnsType<Job> => [
 		{
-			title: 'Status',
+			title: 'Группа',
+			dataIndex: 'group_jid',
+			key: 'group_jid',
+			render: (v: string) => groupMap[v] || v,
+		},
+		{
+			title: 'Шаблон',
+			dataIndex: 'template_id',
+			key: 'template_id',
+			render: (v: string) => templateMap[v] || v,
+		},
+		{
+			title: 'Статус',
 			dataIndex: 'status',
 			key: 'status',
 			render: (v: Job['status']) => {
-				if (v === 'sent') return <Tag color='green'>sent</Tag>
-				if (v === 'failed') return <Tag color='red'>failed</Tag>
-				if (v === 'processing') return <Tag color='blue'>processing</Tag>
-				if (v === 'skipped') return <Tag>skipped</Tag>
-				return <Tag color='gold'>pending</Tag>
+				const label = STATUS_LABELS[v]
+				return <Tag color={label.color}>{label.text}</Tag>
 			},
 		},
 		{
-			title: 'Scheduled',
+			title: 'Запланировано',
 			dataIndex: 'scheduled_at',
 			key: 'scheduled_at',
 			render: (v: string) => (v ? new Date(v).toLocaleString() : '—'),
 		},
 		{
-			title: 'SentAt',
+			title: 'Отправлено',
 			dataIndex: 'sent_at',
 			key: 'sent_at',
 			render: (v: string | null) => (v ? new Date(v).toLocaleString() : '—'),
@@ -168,12 +235,12 @@ function CampaignInner() {
 		const d = wa as ProgressOk
 		return (
 			<div style={{ marginBottom: 12 }}>
-				<div>total: {d.total}</div>
-				<div>sent: {d.sent}</div>
-				<div>failed: {d.failed}</div>
-				<div>pending: {d.pending}</div>
-				<div>processing: {d.processing}</div>
-				<div>skipped: {d.skipped}</div>
+				<div>всего: {d.total}</div>
+				<div>отправлено: {d.sent}</div>
+				<div>ошибок: {d.failed}</div>
+				<div>в ожидании: {d.pending}</div>
+				<div>отправляется: {d.processing}</div>
+				<div>пропущено: {d.skipped}</div>
 				<div style={{ marginTop: 6 }}>
 					Статус: <StatusTag done={d.done} />
 				</div>
@@ -186,12 +253,12 @@ function CampaignInner() {
 		const d = tg as ProgressOk
 		return (
 			<div style={{ marginBottom: 12 }}>
-				<div>total: {d.total}</div>
-				<div>sent: {d.sent}</div>
-				<div>failed: {d.failed}</div>
-				<div>pending: {d.pending}</div>
-				<div>processing: {d.processing}</div>
-				<div>skipped: {d.skipped}</div>
+				<div>всего: {d.total}</div>
+				<div>отправлено: {d.sent}</div>
+				<div>ошибок: {d.failed}</div>
+				<div>в ожидании: {d.pending}</div>
+				<div>отправляется: {d.processing}</div>
+				<div>пропущено: {d.skipped}</div>
 				<div style={{ marginTop: 6 }}>
 					Статус: <StatusTag done={d.done} />
 				</div>
@@ -252,7 +319,7 @@ function CampaignInner() {
 
 					<Table
 						rowKey='id'
-						columns={columns}
+						columns={buildColumns(groupMapWa)}
 						dataSource={(wa as any)?.success ? (wa as any).jobs : []}
 						loading={loading}
 						pagination={{ pageSize: 10 }}
@@ -287,7 +354,7 @@ function CampaignInner() {
 
 					<Table
 						rowKey='id'
-						columns={columns}
+						columns={buildColumns(groupMapTg)}
 						dataSource={(tg as any)?.success ? (tg as any).jobs : []}
 						loading={loading}
 						pagination={{ pageSize: 10 }}

@@ -14,7 +14,7 @@ import {
 	Table,
 	Tag,
 	Segmented,
-	TimePicker,
+	Select,
 } from 'antd'
 import type { UploadProps } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
@@ -23,7 +23,6 @@ import { useRouter } from 'next/navigation'
 import { apiPost } from '@/lib/api'
 import './page.css'
 import Image from 'next/image'
-import dayjs from 'dayjs'
 
 
 const BACKEND_URL =
@@ -37,6 +36,19 @@ type UiGroupRow = {
 	updated_at: string
 	send_time?: string | null
 }
+
+const SEND_INTERVAL_OPTIONS = [
+	{ value: '2-5m', label: '2-5 минут' },
+	{ value: '5-15m', label: '5-15 минут' },
+	{ value: '15-30m', label: '15-30 минут' },
+	{ value: '30-60m', label: '30-60 минут' },
+	{ value: '1-2h', label: '1-2 часа' },
+	{ value: '2-4h', label: '2-4 часа' },
+	{ value: '6h', label: 'раз в 6 часов' },
+	{ value: '6-12h', label: '6-12 часов' },
+	{ value: '12h', label: 'раз в 12 часов' },
+	{ value: '24h', label: 'раз в 24 часа' },
+]
 
 export default function TemplateCreatePage() {
 	const router = useRouter()
@@ -222,21 +234,19 @@ export default function TemplateCreatePage() {
 					v || <span style={{ opacity: 0.6 }}>без названия</span>,
 			},
 			{
-				title: 'Время',
+				title: 'Интервал',
 				key: 'send_time',
-				width: 140,
+				width: 200,
 				render: (_: any, row: UiGroupRow) => (
-					<TimePicker
+					<Select
 						allowClear
-						placeholder='Время'
+						placeholder='Интервал'
 						size='small'
-						style={{ width: 90 }}
-						format='HH:mm'
-						value={row.send_time ? dayjs(row.send_time, 'HH:mm') : null}
+						style={{ width: 170 }}
+						value={row.send_time ?? undefined}
+						options={SEND_INTERVAL_OPTIONS}
 						disabled={!!savingTimeMap[channel + ':' + row.jid]}
-						onChange={v =>
-							setGroupSendTime(channel, row.jid, v ? v.format('HH:mm') : null)
-						}
+						onChange={v => setGroupSendTime(channel, row.jid, v ?? null)}
 					/>
 				),
 			},
@@ -293,12 +303,12 @@ export default function TemplateCreatePage() {
 			const json: any = await apiPost(url, body)
 			if (!json?.success) {
 				message.error(
-					`Не удалось сохранить время группы: ${json?.message || 'unknown'}`
+					`Не удалось сохранить интервал группы: ${json?.message || 'unknown'}`
 				)
 			}
 		} catch (e) {
 			console.error(e)
-			message.error('Ошибка сети при сохранении времени группы')
+			message.error('Ошибка сети при сохранении интервала группы')
 		} finally {
 			setSavingTimeMap(prev => ({ ...prev, [key]: false }))
 		}

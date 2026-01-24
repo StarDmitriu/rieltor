@@ -26,7 +26,7 @@ export class ProdamusController {
    */
   @Post('create')
   @UseGuards(JwtAuthGuard)
-  async create(@Req() req: any) {
+  async create(@Req() req: any, @Body() body: any) {
     const userId = req?.user?.userId;
     if (!userId) throw new ForbiddenException('no_user');
 
@@ -48,7 +48,22 @@ export class ProdamusController {
     }
     if (!user) return { success: false, message: 'user_not_found' };
 
-    const amountRub = 2000;
+    const planCode = String(body?.plan_code || 'wa_tg').trim();
+    const plans: Record<string, { price: number; productName: string }> = {
+      wa: { price: 2000, productName: 'Подписка WhatsApp (30 дней)' },
+      tg: { price: 1000, productName: 'Подписка Telegram (30 дней)' },
+      wa_tg: {
+        price: 2500,
+        productName: 'Подписка WhatsApp + Telegram (30 дней)',
+      },
+    };
+
+    const plan = plans[planCode];
+    if (!plan) {
+      return { success: false, message: 'invalid_plan_code' };
+    }
+
+    const amountRub = plan.price;
 
     // Создаём запись в payments
     const { data: payment, error: pErr } = await supabase
@@ -74,7 +89,7 @@ export class ProdamusController {
     }
 
     // В качестве order_num/нашего order_id используем payment.id
-    const internalOrderId = String(payment.id);
+    const internalOrderId = `${String(payment.id)}|${planCode}`;
 
     // Сохраним order_id = internalOrderId (чисто для удобства)
     await supabase
@@ -82,20 +97,20 @@ export class ProdamusController {
       .update({ order_id: internalOrderId })
       .eq('id', payment.id);
 
-    const paymentUrl = this.prodamus.buildPaymentLink({
+    const payformUrl = this.prodamus.buildPaymentLink({
       orderId: internalOrderId,
       customerPhone: user.phone || undefined,
       customerEmail: user.email || undefined,
       customerExtra: `user_id=${userId}`,
-      productName: 'Доступ к сервису Chatrassylka (30 дней)',
+      productName: plan.productName,
       productPrice: amountRub,
       quantity: 1,
     });
+    const paymentUrl = await this.prodamus.resolvePaymentLink(payformUrl);
 
     return {
       success: true,
       payment_url: paymentUrl,
-      order_id: internalOrderId,
     };
   }
 
@@ -138,7 +153,6 @@ export class ProdamusController {
     if (expanded?.submit)
       console.log('submit keys:', Object.keys(expanded.submit));
 
-
     // По доке:
     // order_id = ID заказа в Prodamus
     // order_num = номер заказа на стороне магазина
@@ -147,7 +161,15 @@ export class ProdamusController {
     ).trim(); // это наш internal id
     const prodamusOrderId = String(
       expanded?.order_id || expanded?.submit?.order_id || '',
-    ).trim(); // это их id
+    ).trim();
+
+    const planCodeFromOrder = orderNum.includes('|')
+      ? orderNum.split('|')[1]
+      : null;
+    const allowedPlans = new Set(['wa', 'tg', 'wa_tg']);
+    const planCode = allowedPlans.has(String(planCodeFromOrder || ''))
+      ? String(planCodeFromOrder)
+      : 'wa_tg'; // это их id
 
     const paymentStatus = String(expanded?.payment_status || '').trim(); // success | order_canceled | ...
     const sum = String(expanded?.sum || '').trim();
@@ -182,6 +204,10 @@ export class ProdamusController {
       return { success: true, ignored: true, reason: 'payment_not_found' };
     }
 
+    if (paymentRow.status === 'paid') {
+      return { success: true, already_processed: true };
+    }
+
     // маппинг статуса
     const isSuccess = paymentStatus === 'success';
 
@@ -204,17 +230,31 @@ export class ProdamusController {
 
     // Активируем подписку на 30 дней
     const now = new Date();
-    const startIso = now.toISOString();
-    const end = new Date(now.getTime());
+    const nowMs = now.getTime();
+
+    let baseEndMs = nowMs;
+
+    // если подписка уже активна — продлеваем от текущего конца
+    if (
+      paymentRow.current_period_end &&
+      new Date(paymentRow.current_period_end).getTime() > nowMs
+    ) {
+      baseEndMs = new Date(paymentRow.current_period_end).getTime();
+    }
+
+    const startIso = new Date(baseEndMs).toISOString();
+
+    const end = new Date(baseEndMs);
     end.setDate(end.getDate() + 30);
     const endIso = end.toISOString();
+
 
     // Upsert subscriptions
     await supabase.from('subscriptions').upsert(
       {
         user_id: paymentRow.user_id,
         status: 'active',
-        plan_code: 'base',
+        plan_code: planCode,
         provider: 'prodamus',
         current_period_start: startIso,
         current_period_end: endIso,
@@ -229,3 +269,6 @@ export class ProdamusController {
     return { success: true };
   }
 }
+
+
+

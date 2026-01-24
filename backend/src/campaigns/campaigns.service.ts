@@ -71,6 +71,39 @@ function clampToWindow(dt: DateTime, fromHHMM: string, toHHMM: string) {
   return startToday;
 }
 
+type GroupScheduleSpec =
+  | { kind: 'fixed'; hhmm: string }
+  | { kind: 'interval'; minMinutes: number; maxMinutes: number };
+
+const GROUP_INTERVALS: Record<
+  string,
+  { minMinutes: number; maxMinutes: number }
+> = {
+  '2-5m': { minMinutes: 2, maxMinutes: 5 },
+  '5-15m': { minMinutes: 5, maxMinutes: 15 },
+  '15-30m': { minMinutes: 15, maxMinutes: 30 },
+  '30-60m': { minMinutes: 30, maxMinutes: 60 },
+  '1-2h': { minMinutes: 60, maxMinutes: 120 },
+  '2-4h': { minMinutes: 120, maxMinutes: 240 },
+  '6h': { minMinutes: 360, maxMinutes: 360 },
+  '6-12h': { minMinutes: 360, maxMinutes: 720 },
+  '12h': { minMinutes: 720, maxMinutes: 720 },
+  '24h': { minMinutes: 1440, maxMinutes: 1440 },
+};
+
+function parseGroupScheduleSpec(v: any): GroupScheduleSpec | null {
+  const s = String(v || '').trim();
+  if (!s) return null;
+  if (/^([01]\d|2[0-3]):[0-5]\d$/.test(s)) return { kind: 'fixed', hhmm: s };
+  const interval = GROUP_INTERVALS[s];
+  if (!interval) return null;
+  return {
+    kind: 'interval',
+    minMinutes: interval.minMinutes,
+    maxMinutes: interval.maxMinutes,
+  };
+}
+
 
 export type StartMultiOptions = {
   timeFrom?: string; // "08:00"
@@ -830,6 +863,39 @@ export class CampaignsService {
       pendingFutureMap.set(key, String((j as any).scheduled_at));
     }
 
+    const { data: allJobs, error: allErr } = await supabase
+      .from('campaign_jobs')
+      .select('group_jid, template_id, scheduled_at')
+      .eq('campaign_id', params.campaignId);
+
+    if (allErr) {
+      return {
+        success: false,
+        message: 'supabase_jobs_select_error',
+        error: allErr,
+      };
+    }
+
+    const latestScheduledMap = new Map<string, string>();
+    const latestScheduledGroupMap = new Map<string, string>();
+    for (const j of allJobs ?? []) {
+      const groupId = String((j as any).group_jid);
+      const templateId = String((j as any).template_id);
+      const key = `${groupId}|${templateId}`;
+      const iso = String((j as any).scheduled_at || '');
+      if (!iso) continue;
+      const prev = latestScheduledMap.get(key);
+      if (!prev || new Date(iso).getTime() > new Date(prev).getTime()) {
+        latestScheduledMap.set(key, iso);
+      }
+      const gPrev = latestScheduledGroupMap.get(groupId);
+      if (!gPrev || new Date(iso).getTime() > new Date(gPrev).getTime()) {
+        latestScheduledGroupMap.set(groupId, iso);
+      }
+    }
+
+    const perGroupNextAvailable = new Map<string, DateTime>();
+
     for (let ti = 0; ti < templates.length; ti++) {
       const template: any = templates[ti];
 
@@ -849,19 +915,41 @@ export class CampaignsService {
       for (let gi = 0; gi < targetGroups.length; gi++) {
         const group: any = targetGroups[gi];
 
-        const fixedTime = group?.send_time
-          ? nextFixedTime(base, String(group.send_time))
-          : null;
+        const scheduleSpec = parseGroupScheduleSpec(group?.send_time);
+        let scheduledAt: DateTime | null = null;
 
-        if (!fixedTime) {
+        if (scheduleSpec?.kind === 'fixed') {
+          const fixed = nextFixedTime(base, scheduleSpec.hhmm);
+          const nextAvail = perGroupNextAvailable.get(String(group.jid));
+          scheduledAt = nextAvail && nextAvail > fixed ? nextAvail : fixed;
+        } else if (scheduleSpec?.kind === 'interval') {
+          const groupId = String(group.jid);
+          let nextAvail = perGroupNextAvailable.get(groupId);
+          if (!nextAvail) {
+            const lastGroupIso = latestScheduledGroupMap.get(groupId);
+            nextAvail = lastGroupIso
+              ? DateTime.fromISO(lastGroupIso).setZone(params.tz).plus({
+                  minutes: randInt(
+                    scheduleSpec.minMinutes,
+                    scheduleSpec.maxMinutes,
+                  ),
+                })
+              : base;
+          }
+          if (nextAvail < base) nextAvail = base;
+          scheduledAt = clampToWindow(
+            nextAvail,
+            params.time_from,
+            params.time_to,
+          );
+        } else {
           cursor = clampToWindow(cursor, params.time_from, params.time_to);
+          scheduledAt = cursor;
         }
 
-        if (fixedTime) {
-          const key = `${String(group.jid)}|${String(template.id)}`;
-          if (pendingFutureMap.has(key)) {
-            continue;
-          }
+        const key = `${String(group.jid)}|${String(template.id)}`;
+        if (pendingFutureMap.has(key)) {
+          continue;
         }
 
         jobsToInsert.push({
@@ -871,13 +959,49 @@ export class CampaignsService {
           channel: params.channel,
           template_id: template.id,
           status: 'pending',
-          scheduled_at: fixedTime
-            ? fixedTime.toUTC().toISO()
-            : cursor.toUTC().toISO(),
+          scheduled_at: scheduledAt.toUTC().toISO(),
           created_at: new Date().toISOString(),
         });
 
-        if (!fixedTime) {
+        if (scheduleSpec?.kind === 'interval') {
+          const groupId = String(group.jid);
+          perGroupNextAvailable.set(
+            groupId,
+            scheduledAt.plus({
+              minutes: randInt(
+                scheduleSpec.minMinutes,
+                scheduleSpec.maxMinutes,
+              ),
+            }),
+          );
+          latestScheduledGroupMap.set(groupId, scheduledAt.toUTC().toISO());
+          latestScheduledMap.set(
+            `${String(group.jid)}|${String(template.id)}`,
+            scheduledAt.toUTC().toISO(),
+          );
+        }
+
+        if (scheduleSpec?.kind === 'fixed') {
+          perGroupNextAvailable.set(
+            String(group.jid),
+            scheduledAt.plus({
+              minutes: randInt(
+                params.betweenTemplatesMinMin,
+                params.betweenTemplatesMinMax,
+              ),
+            }),
+          );
+          latestScheduledGroupMap.set(
+            String(group.jid),
+            scheduledAt.toUTC().toISO(),
+          );
+          latestScheduledMap.set(
+            `${String(group.jid)}|${String(template.id)}`,
+            scheduledAt.toUTC().toISO(),
+          );
+        }
+
+        if (!scheduleSpec) {
           cursor = cursor.plus({
             seconds: randInt(
               params.betweenGroupsSecMin,

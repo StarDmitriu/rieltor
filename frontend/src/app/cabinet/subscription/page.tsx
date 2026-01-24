@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState } from 'react'
 import Cookies from 'js-cookie'
@@ -9,6 +9,18 @@ import { useNotify } from '@/ui/notify/notify'
 
 const backendUrl =
 	process.env.NEXT_PUBLIC_BACKEND_URL || '/api'
+
+const PLAN_LABELS: Record<string, string> = {
+	wa: 'WhatsApp',
+	tg: 'Telegram',
+	wa_tg: 'WhatsApp + Telegram',
+}
+
+const PLAN_PRICES: Record<string, number> = {
+	wa: 2000,
+	tg: 1000,
+	wa_tg: 2500,
+}
 
 export default function SubscriptionPage() {
 	const router = useRouter()
@@ -79,6 +91,52 @@ export default function SubscriptionPage() {
 		}
 	}
 
+	const startPayment = async (planCode: 'wa' | 'tg' | 'wa_tg') => {
+		try {
+			const res = await apiPost('/payments/prodamus/create', {
+				plan_code: planCode,
+			})
+			if (!res?.success || !res?.payment_url) {
+				notify(res?.message || 'Не удалось создать оплату', {
+					type: 'error',
+				})
+				return
+			}
+			window.location.href = res.payment_url
+		} catch (e) {
+			console.error(e)
+			notify('Ошибка сети', { type: 'error', title: 'Ошибка' })
+		}
+	}
+
+	const toggleAutoRenew = async (nextCancel: boolean) => {
+		try {
+			setBusy(true)
+			const res = await apiPost('/subscriptions/cancel', {
+				cancel: nextCancel,
+			})
+			if (!res?.success) {
+				notify(res?.message || 'Не удалось обновить подписку', {
+					type: 'error',
+				})
+				return
+			}
+			const me = await fetch(`${backendUrl}/subscriptions/me`, {
+				headers: {
+					Authorization: `Bearer ${Cookies.get('token')}`,
+					'Content-Type': 'application/json',
+				},
+				cache: 'no-store',
+			})
+			setData(await me.json())
+		} catch (e) {
+			console.error(e)
+			notify('Ошибка сети', { type: 'error', title: 'Ошибка' })
+		} finally {
+			setBusy(false)
+		}
+	}
+
 	if (loading) return <div style={{ padding: 24 }}>Загрузка...</div>
 
 	// ❗ если success=false — показываем ошибку
@@ -97,7 +155,8 @@ export default function SubscriptionPage() {
 	const status = data.status || sub.status || 'none'
 	const daysLeft = data.accessDaysLeft ?? 0
 	const endsAt = data.accessEndsAt ?? null
-	let rusStatus = ''
+	const planCode = String(sub.plan_code || 'wa_tg')
+	const cancelAtPeriodEnd = !!sub.cancel_at_period_end
 
 	const canStartTrial =
 		!data.isBlocked &&
@@ -105,85 +164,122 @@ export default function SubscriptionPage() {
 		status !== 'trial' &&
 		daysLeft === 0
 
-	if (status === 'active'){
-		rusStatus = 'Активна'
-	} else if (status === 'trial') {
-		rusStatus = 'Пробный период'
-	}
-		return (
-			<div className='subscription'>
-				<h1 className='subscription-title'>Моя подписка</h1>
-				<p className='subscription-text'>
-					Здесь вы можете продлить доступ, сменить тариф или отключить
-					автосписание
-				</p>
-				<div className='subscription-cont'>
-					<div className='subscription-data'>
-						<strong>Текущий тариф</strong>
-						<p className='subscription-data-text'>{rusStatus}</p>
-					</div>
-					<div className='subscription-data'>
-						<strong>Осталось дней</strong>
-						<p className='subscription-data-text'>{daysLeft}</p>
-					</div>
-					<div className='subscription-data'>
-						<strong>Действует до:</strong>{' '}
-						<p className='subscription-data-text'>
-							{endsAt ? new Date(endsAt).toLocaleString() : '—'}
-						</p>
-					</div>
+	const rusStatus =
+		status === 'active'
+			? 'Активна'
+			: status === 'trial'
+				? 'Пробный период'
+				: 'Неактивна'
 
-					{data.isBlocked ? (
-						<p style={{ color: 'red' }}>
-							<strong>Аккаунт заблокирован администратором</strong>
-						</p>
+	const planLabel = PLAN_LABELS[planCode] || 'Без тарифа'
+	const showExpiringNotice =
+		status === 'active' && (daysLeft === 3 || daysLeft === 1)
+
+	return (
+		<div className='subscription'>
+			<h1 className='subscription-title'>Моя подписка</h1>
+			<p className='subscription-text'>
+				Здесь вы можете продлить доступ, сменить тариф или отключить
+				автосписание
+			</p>
+			<div className='subscription-cont'>
+				{showExpiringNotice ? (
+					<div
+						style={{
+							background: '#fff7d6',
+							border: '1px solid #f2e2a8',
+							borderRadius: 12,
+							padding: 12,
+							marginBottom: 12,
+							width: '100%',
+						}}
+					>
+						До конца подписки осталось {daysLeft} дн.
+					</div>
+				) : null}
+
+				<div className='subscription-data'>
+					<strong>Текущий тариф</strong>
+					<p className='subscription-data-text'>{planLabel}</p>
+				</div>
+				<div className='subscription-data'>
+					<strong>Статус</strong>
+					<p className='subscription-data-text'>{rusStatus}</p>
+				</div>
+				<div className='subscription-data'>
+					<strong>Осталось дней</strong>
+					<p className='subscription-data-text'>{daysLeft}</p>
+				</div>
+				<div className='subscription-data'>
+					<strong>Действует до:</strong>{' '}
+					<p className='subscription-data-text'>
+						{endsAt ? new Date(endsAt).toLocaleString() : '-'}
+					</p>
+				</div>
+
+				{data.isBlocked ? (
+					<p style={{ color: 'red' }}>
+						<strong>Аккаунт заблокирован администратором</strong>
+					</p>
+				) : null}
+
+				<div style={{ marginTop: 12 }}>
+					{canStartTrial ? (
+						<button
+							onClick={startTrial}
+							disabled={busy}
+							className='trial-btn'
+						>
+							{busy ? 'Запускаем...' : 'Начать пробный период (3 дня)'}
+						</button>
 					) : null}
 
-					<div style={{ marginTop: 12 }}>
-						{canStartTrial ? (
-							<button
-								onClick={startTrial}
-								disabled={busy}
-								className='trial-btn'
-							>
-								{busy ? 'Запускаем...' : 'Начать пробный период (3 дня)'}
-							</button>
-						) : null}
-
-						{!data.isBlocked ? (
-							<button
-								onClick={async () => {
-									try {
-										const res = await apiPost('/payments/prodamus/create', {})
-										if (!res?.success || !res?.payment_url) {
-											notify(res?.message || 'Не удалось создать оплату', {
-												type: 'error',
-											})
-											return
-										}
-										window.location.href = res.payment_url
-									} catch (e) {
-										console.error(e)
-										notify('Ошибка сети', { type: 'error', title: 'Ошибка' })
-									}
-								}}
-								style={{ padding: 10, marginLeft: 8 }}
-							>
-								Оплатить 2000₽ / месяц
-							</button>
-						) : null}
-
+					{status === 'active' && !data.isBlocked ? (
 						<button
-							onClick={() => router.push('/cabinet')}
-							style={{ padding: 10, marginLeft: 8 }}
+							onClick={() => toggleAutoRenew(!cancelAtPeriodEnd)}
+							disabled={busy}
+							style={{ padding: 10, marginRight: 8 }}
 						>
-							Назад в кабинет
+							{cancelAtPeriodEnd
+								? 'Включить автопродление'
+								: 'Отключить автопродление'}
 						</button>
-					</div>
+					) : null}
+
+					{!data.isBlocked ? (
+						<div style={{ marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+							<button
+								onClick={() => startPayment('wa')}
+								style={{ padding: 10 }}
+							>
+								Оплатить WhatsApp - {PLAN_PRICES.wa} руб. / месяц
+							</button>
+							<button
+								onClick={() => startPayment('tg')}
+								style={{ padding: 10 }}
+							>
+								Оплатить Telegram - {PLAN_PRICES.tg} руб. / месяц
+							</button>
+							<button
+								onClick={() => startPayment('wa_tg')}
+								style={{ padding: 10 }}
+							>
+								Оплатить WhatsApp + Telegram - {PLAN_PRICES.wa_tg} руб. / месяц
+							</button>
+						</div>
+					) : null}
+
+					<button
+						onClick={() => router.push('/cabinet')}
+						style={{ padding: 10, marginLeft: 8 }}
+					>
+						Назад в кабинет
+					</button>
 				</div>
-				<p className='subscription-footer'>
-					После окончания подписки доступ к сервису будет приостановлен
-				</p>
 			</div>
-		)
+			<p className='subscription-footer'>
+				После окончания подписки доступ к сервису будет приостановлен
+			</p>
+		</div>
+	)
 }

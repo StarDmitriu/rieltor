@@ -18,7 +18,14 @@ export class SubscriptionGuard implements CanActivate {
       throw new ForbiddenException('no_user');
     }
 
-    const check = await this.subs.hasAccess(userId);
+    const channelRaw = req?.body?.channel;
+    const channelNorm = String(channelRaw || '').toLowerCase();
+    const channel =
+      channelNorm === 'tg' ? 'tg' : channelNorm === 'wa' ? 'wa' : null;
+
+    const check = channel
+      ? await this.subs.hasAccessForChannel(userId, channel)
+      : await this.subs.hasAccess(userId);
     if (check.allowed) return true;
 
     // ✅ фронту будет понятно, что случилось

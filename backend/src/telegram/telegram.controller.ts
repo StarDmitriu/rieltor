@@ -1,10 +1,41 @@
 //backend/src/telegram/telegram.controller.ts
 import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { TelegramService } from './telegram.service';
+import { TelegramQrService } from './telegram.qr';
 
 @Controller('telegram')
 export class TelegramController {
-  constructor(private readonly telegram: TelegramService) {}
+  constructor(
+    private readonly telegram: TelegramService,
+    private readonly telegramQr: TelegramQrService,
+  ) {}
+
+  @Post('qr/start')
+  async startQr(@Body('userId') userId: string) {
+    if (!userId) return { success: false, message: 'userId is required' };
+    return this.telegramQr.start(userId);
+  }
+
+  @Get('qr/status/:userId')
+  async qrStatus(@Param('userId') userId: string) {
+    if (!userId) return { success: false, message: 'userId is required' };
+    return this.telegramQr.status(userId);
+  }
+
+  @Post('qr/confirm-password')
+  async qrConfirmPassword(@Body() body: any) {
+    const userId = body?.userId;
+    const password = body?.password;
+    if (!userId) return { success: false, message: 'userId is required' };
+    if (!password) return { success: false, message: 'password is required' };
+    return this.telegramQr.confirmPassword(userId, password);
+  }
+
+  @Post('qr/disconnect')
+  async qrDisconnect(@Body('userId') userId: string) {
+    if (!userId) return { success: false, message: 'userId is required' };
+    return this.telegramQr.disconnect(userId);
+  }
 
   @Get('status/:userId')
   async status(@Param('userId') userId: string) {

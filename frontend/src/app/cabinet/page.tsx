@@ -8,7 +8,7 @@ import { WhatsappConnectBlock } from '@/components/WhatsappConnectBlock'
 import { SheetsBlock } from '@/components/SheetsBlock'
 import { TemplatesSyncBlock } from '@/components/TemplatesSyncBlock'
 import { CampaignBlock } from '@/components/CampaignBlock'
-import { TelegramConnect } from '@/components/TelegramConnect'
+import { TelegramQrConnect } from '@/components/TelegramQrConnect'
 import { apiGet } from '@/lib/api'
 import { useNotify } from '@/ui/notify/notify'
 
@@ -139,7 +139,7 @@ export default function CabinetPage() {
 				</div>
 			</div>
 
-			<TelegramConnect userId={user.id} />
+			<TelegramQrConnect userId={user.id} />
 
 			{/* ✅ WhatsApp */}
 			<div style={{ marginTop: 16 }}>

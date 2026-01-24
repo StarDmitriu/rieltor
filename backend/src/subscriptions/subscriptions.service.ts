@@ -130,7 +130,7 @@ export class SubscriptionsService {
     const row = {
       user_id: userId,
       status: 'trial',
-      plan_code: 'base',
+      plan_code: 'wa_tg',
       trial_started_at: nowIso,
       trial_ends_at: trialEndsAt,
 
@@ -148,6 +148,27 @@ export class SubscriptionsService {
       return { success: false, message: 'supabase_upsert_error', error };
 
     return { success: true, subscription: data };
+
+  async setCancelAtPeriodEnd(userId: string, cancelAtPeriodEnd: boolean) {
+    const supabase = this.supabaseService.getClient();
+    const nowIso = this.nowIso();
+
+    const { data, error } = await supabase
+      .from('subscriptions')
+      .update({
+        cancel_at_period_end: cancelAtPeriodEnd,
+        updated_at: nowIso,
+      })
+      .eq('user_id', userId)
+      .select()
+      .maybeSingle();
+
+    if (error)
+      return { success: false, message: 'supabase_update_error', error };
+    if (!data) return { success: false, message: 'subscription_not_found' };
+
+    return { success: true, subscription: data };
+  }
   }
 
   // Главная функция для защиты доступа
@@ -179,4 +200,20 @@ export class SubscriptionsService {
 
     return { allowed: false, reason: 'no_subscription' };
   }
+
+  async hasAccessForChannel(
+    userId: string,
+    channel: 'wa' | 'tg',
+  ): Promise<{ allowed: boolean; reason?: string }> {
+    const access = await this.hasAccess(userId);
+    if (!access.allowed) return access;
+
+    const { sub } = await this.getUserAndSub(userId);
+    const plan = String(sub?.plan_code || 'wa_tg').toLowerCase();
+    if (plan === 'wa_tg' || plan === 'base') return { allowed: true };
+    if (plan === channel) return { allowed: true };
+
+    return { allowed: false, reason: 'plan_not_allowed' };
+  }
 }
+

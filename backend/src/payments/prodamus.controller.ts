@@ -50,10 +50,10 @@ export class ProdamusController {
 
     const planCode = String(body?.plan_code || 'wa_tg').trim();
     const plans: Record<string, { price: number; productName: string }> = {
-      wa: { price: 60, productName: 'Подписка WhatsApp (30 дней)' },
-      tg: { price: 50, productName: 'Подписка Telegram (30 дней)' },
+      wa: { price: 2000, productName: 'Подписка WhatsApp (30 дней)' },
+      tg: { price: 1000, productName: 'Подписка Telegram (30 дней)' },
       wa_tg: {
-        price: 65,
+        price: 2500,
         productName: 'Подписка WhatsApp + Telegram (30 дней)',
       },
     };

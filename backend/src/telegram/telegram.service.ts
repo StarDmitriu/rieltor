@@ -671,7 +671,7 @@ export class TelegramService implements OnModuleDestroy {
 
   // ---------- sync groups ----------
   async syncGroups(userId: string) {
-    const client = await this.getConnectedClient(userId);
+    let client = await this.getConnectedClient(userId);
     if (!client) return { success: false, message: 'telegram_not_connected' };
 
     const supabase = this.supabaseService.getClient();
@@ -708,12 +708,42 @@ export class TelegramService implements OnModuleDestroy {
         this.logger.warn(`TG getDialogs TIMEOUT: ${msg}`);
         return { success: false, message: 'telegram_timeout', error: msg };
       }
-      this.logger.error(`TG getDialogs failed: ${msg}`);
-      return {
-        success: false,
-        message: 'telegram_get_dialogs_failed',
-        error: msg,
-      };
+      if (msg.includes('AUTH_KEY_UNREGISTERED')) {
+        this.logger.warn(`TG getDialogs AUTH_KEY_UNREGISTERED: ${msg}`);
+        await this.withLock(userId, async () => {
+          const existing = this.sessions.get(userId);
+          if (existing) {
+            await existing.disconnect().catch(() => undefined);
+            this.sessions.delete(userId);
+          }
+        });
+        client = await this.getConnectedClient(userId);
+        if (!client) {
+          return { success: false, message: 'telegram_not_connected' };
+        }
+        try {
+          dialogs = await client.getDialogs({});
+        } catch (e2: any) {
+          const msg2 = String(e2?.message ?? e2);
+          if (msg2.includes('TIMEOUT')) {
+            this.logger.warn(`TG getDialogs TIMEOUT: ${msg2}`);
+            return { success: false, message: 'telegram_timeout', error: msg2 };
+          }
+          this.logger.error(`TG getDialogs failed(after reset): ${msg2}`);
+          return {
+            success: false,
+            message: 'telegram_get_dialogs_failed',
+            error: msg2,
+          };
+        }
+      } else {
+        this.logger.error(`TG getDialogs failed: ${msg}`);
+        return {
+          success: false,
+          message: 'telegram_get_dialogs_failed',
+          error: msg,
+        };
+      }
     }
 
     const nowIso = new Date().toISOString();

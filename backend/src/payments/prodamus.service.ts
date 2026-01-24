@@ -138,6 +138,7 @@ export class ProdamusService {
     customerPhone?: string;
     customerEmail?: string;
     customerExtra?: string;
+    subscriptionId?: string;
     productName: string;
     productPrice: number; // "2000"
     quantity?: number;
@@ -154,6 +155,7 @@ export class ProdamusService {
       ...(params.customerPhone ? { customer_phone: params.customerPhone } : {}),
       ...(params.customerEmail ? { customer_email: params.customerEmail } : {}),
       ...(params.customerExtra ? { customer_extra: params.customerExtra } : {}),
+      ...(params.subscriptionId ? { subscription: params.subscriptionId } : {}),
 
       products: [
         {
@@ -178,6 +180,7 @@ export class ProdamusService {
     if (params.customerPhone) q.set('customer_phone', params.customerPhone);
     if (params.customerEmail) q.set('customer_email', params.customerEmail);
     if (params.customerExtra) q.set('customer_extra', params.customerExtra);
+    if (params.subscriptionId) q.set('subscription', params.subscriptionId);
 
     q.set('products[0][name]', params.productName);
     q.set('products[0][price]', String(params.productPrice));
@@ -207,5 +210,8 @@ export class ProdamusService {
     return payformUrl;
   }
 }
+
+
+
 
 

@@ -13,6 +13,11 @@ export default function LoginPage() {
 	const router = useRouter()
 	const notify = useNotify()
 
+	const back = () => {
+		router.push(
+			`/`,
+		)
+	}
 
 	const sendCode = async () => {
 		if (!phone.trim()) {
@@ -51,6 +56,14 @@ export default function LoginPage() {
 
 	return (
 		<main className='auth'>
+			<button
+				type='button'
+				className='auth-back__button'
+				onClick={back}
+			>
+				Назад
+			</button>
+
 			<div className='auth__wrap'>
 				<h1 className='auth__title'>Войдите в свой аккаунт</h1>
 				<p className='auth__subtitle'>

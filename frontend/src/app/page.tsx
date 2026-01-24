@@ -268,11 +268,19 @@ export default function HomePage() {
 					<h2 className='section-title'>Тарифы</h2>
 
 					<p className='pricing-text'>
-						Единый тариф по рассылке <br /> Стоимость <b>не зависит</b> от
-						количества групп и сообщений отправляемых в день
+						Тарифы по рассылке <br /> Стоимость <b>не зависит</b> от количества
+						групп и сообщений отправляемых в день
 					</p>
 
-					<div className='pricing-price'>1999 ₽</div>
+					<div className='pricing-price'>
+						Отправка сообщений в WhatsApp 2000 ₽
+					</div>
+					<div className='pricing-price'>
+						Отправка сообщений в Telegram 1000 ₽
+					</div>
+					<div className='pricing-price'>
+						Отправка сообщений в WhatsApp и Telegram 2500 ₽
+					</div>
 
 					<div className='trial-card'>
 						<div className='trial-title'>3 дня бесплатного доступа</div>
@@ -289,7 +297,7 @@ export default function HomePage() {
 						</div>
 
 						<div className='trial-down'>↓</div>
-
+						
 						<Link className='trial-main trial-pill ' href='/cabinet'>
 							Перейти к подключению
 						</Link>
@@ -314,23 +322,29 @@ export default function HomePage() {
 							}
 
 							// простая проверка обязательных
-							if (!fullName.trim()) return notify('Заполни поле "Имя и фамилия"', {
+							if (!fullName.trim())
+								return notify('Заполни поле "Имя и фамилия"', {
 									type: 'warning',
 								})
-							if (!phone.trim()) return notify('Заполни поле "Номер телефона"', {
+							if (!phone.trim())
+								return notify('Заполни поле "Номер телефона"', {
 									type: 'warning',
 								})
 							if (!birthDate.trim())
 								return notify('Заполни поле "Дата рождения"', {
 									type: 'warning',
 								})
-							if (!city.trim()) return notify('Заполни поле "Город"', {
+							if (!city.trim())
+								return notify('Заполни поле "Город"', {
 									type: 'warning',
 								})
 							if (!pdConsent)
-								return notify('Нужно согласие на обработку персональных данных', {
-									type: 'warning',
-								})
+								return notify(
+									'Нужно согласие на обработку персональных данных',
+									{
+										type: 'warning',
+									},
+								)
 
 							try {
 								setSending(true)
@@ -354,7 +368,7 @@ export default function HomePage() {
 								if (!res.ok || !data?.success) {
 									notify(data?.message || 'Не удалось отправить заявку', {
 										type: 'error',
-										title : 'Ошибка'
+										title: 'Ошибка',
 									})
 									return
 								}

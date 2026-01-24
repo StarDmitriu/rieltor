@@ -6,9 +6,18 @@
   background: #fff;
 }
 
+.auth-back__button{
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  font-size: 14px;
+  padding: 10px 15px;
+}
+
 .auth__wrap {
   width: 100%;
   max-width: 920px;
+  margin-top: 30px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -28,7 +37,6 @@
 }
 
 .auth-card {
-  width: 500px;
   background: #F9EE91; 
   border-radius: 50px;
   padding: 52px 50px 31px 50px;
@@ -90,7 +98,6 @@
   }
 
   .auth-card {
-    width: 420px;
     border-radius: 40px;
     padding: 44px 36px 26px 36px;
   }
@@ -123,7 +130,6 @@
   }
 
   .auth-card {
-    width: 100%;
     max-width: 420px;
     border-radius: 28px;
     padding: 28px 18px 20px 18px;

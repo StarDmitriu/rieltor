@@ -5,7 +5,7 @@ import Cookies from 'js-cookie'
 import { Button, Table, message, Space, Checkbox, Input, Select } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { useRouter } from 'next/navigation'
-import styles from '../telegram-groups/telegram-groups.module.css' // <-- берем те же стили
+import styles from './groups.module.css'
 
 const BACKEND_URL =
 	process.env.NEXT_PUBLIC_BACKEND_URL || '/api'
@@ -261,16 +261,18 @@ export default function GroupsPage() {
 							/>
 							<div className={styles.rowTitle}>{name}</div>
 						</div>
-						<Select
-							allowClear
-							placeholder='Интервал'
-							size='small'
-							className={styles.intervalSelect}
-							value={row.send_time ?? undefined}
-							options={SEND_INTERVAL_OPTIONS}
-							disabled={!!savingTimeMap[row.wa_group_id]}
-							onChange={v => setSendTime(row.wa_group_id, v ?? null)}
-						/>
+						<div className={styles.intervalWrap}>
+							<Select
+								allowClear
+								placeholder='Интервал'
+								size='small'
+								className={styles.intervalSelect}
+								value={row.send_time ?? undefined}
+								options={SEND_INTERVAL_OPTIONS}
+								disabled={!!savingTimeMap[row.wa_group_id]}
+								onChange={v => setSendTime(row.wa_group_id, v ?? null)}
+							/>
+						</div>
 					</div>
 				)
 			},

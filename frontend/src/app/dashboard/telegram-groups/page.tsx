@@ -261,16 +261,18 @@ export default function TelegramGroupsPage() {
 							<div className={styles.rowTitle}>{name}</div>
 						</div>
 
-						<Select
-							allowClear
-							placeholder='Интервал'
-							size='small'
-							className={styles.intervalSelect}
-							value={row.send_time ?? undefined}
-							options={SEND_INTERVAL_OPTIONS}
-							disabled={!!savingTimeMap[row.tg_chat_id]}
-							onChange={v => setSendTime(row.tg_chat_id, v ?? null)}
-						/>
+						<div className={styles.intervalWrap}>
+							<Select
+								allowClear
+								placeholder='Интервал'
+								size='small'
+								className={styles.intervalSelect}
+								value={row.send_time ?? undefined}
+								options={SEND_INTERVAL_OPTIONS}
+								disabled={!!savingTimeMap[row.tg_chat_id]}
+								onChange={v => setSendTime(row.tg_chat_id, v ?? null)}
+							/>
+						</div>
 					</div>
 				)
 			},

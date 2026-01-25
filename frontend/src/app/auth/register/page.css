@@ -6,6 +6,14 @@
   background: #fff;
 }
 
+.auth-back__button{
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  font-size: 14px;
+  padding: 10px 15px;
+}
+
 .auth__wrap {
   width: 100%;
   max-width: 920px;
@@ -13,6 +21,7 @@
   flex-direction: column;
   align-items: center;
   text-align: center;
+  margin-top: 30px;
 }
 
 .auth__title {

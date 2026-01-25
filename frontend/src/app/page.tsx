@@ -297,7 +297,7 @@ export default function HomePage() {
 						</div>
 
 						<div className='trial-down'>↓</div>
-						
+
 						<Link className='trial-main trial-pill ' href='/cabinet'>
 							Перейти к подключению
 						</Link>
@@ -456,7 +456,16 @@ export default function HomePage() {
 									checked={marketingConsent}
 									onChange={e => setMarketingConsent(e.target.checked)}
 								/>
-								<span>Даю согласие на получение информации и напоминаний</span>
+								<span>
+									Даю согласие на{' '}
+									<a
+										href='/docs/pd-politic.pdf'
+										target='_blank'
+										rel='noreferrer'
+									>
+										получение информации и напоминаний
+									</a>
+								</span>
 							</label>
 						</div>
 						<button className='contact-button' disabled={sending} type='submit'>

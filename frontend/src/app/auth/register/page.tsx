@@ -25,6 +25,10 @@ function RegisterInner() {
 	const [loading, setLoading] = useState(false)
 	const notify = useNotify()
 
+	const back = () => {
+		router.push(`/`)
+	}
+
 	const sendCode = async () => {
 		// валидация как на лендинге
 		if (!fullName.trim()) return notify('Заполни поле "Имя и фамилия"', { type: "error", title: "Ошибка" });
@@ -90,6 +94,9 @@ function RegisterInner() {
 
 	return (
 		<div className='auth'>
+			<button type='button' className='auth-back__button' onClick={back}>
+				Назад
+			</button>
 			<div className='auth__wrap'>
 				<h1 className='auth__title'>Регистрация пользователя</h1>
 
@@ -150,7 +157,12 @@ function RegisterInner() {
 								checked={marketingConsent}
 								onChange={e => setMarketingConsent(e.target.checked)}
 							/>
-							<span>Даю согласие на получение информации и напоминаний</span>
+							<span>
+								Даю согласие на{' '}
+								<a href='/docs/pd-politic.pdf' target='_blank' rel='noreferrer'>
+									получение информации и напоминаний
+								</a>
+							</span>
 						</label>
 					</div>
 

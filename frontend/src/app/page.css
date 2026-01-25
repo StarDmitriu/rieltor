@@ -58,19 +58,19 @@ a {
 
 /* Фон "домики" (подложка) */
 .landing {
-	/*min-height: 100vh;
+  min-height: 100vh;
+  background-image: url('./house-tile.png');
+  background-size: 236px 302px;
+  background-repeat: repeat;
+  background-position: 0 0;
 
-	background-image: url('house.png'); 
-	background-size: 136px auto;
-	background-repeat: repeat;
-	background-position: 0 0; */
-
-	/* Вариант B: просто легкий серый паттерн, чтобы не было пусто */
-	/*background-image:
-		linear-gradient(rgba(0, 0, 0, 0.04) 1px, transparent 1px),
-		linear-gradient(90deg, rgba(0, 0, 0, 0.04) 1px, transparent 1px);
-	background-size: 220px 220px;
-	background-position: 0 40px;*/
+  /* background grid (optional)
+  background-image:
+    linear-gradient(rgba(0, 0, 0, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.04) 1px, transparent 1px);
+  background-size: 236px 302px;
+  background-position: 0 40px;
+  */
 }
 
 /* HEADER */
@@ -693,3 +693,8 @@ a {
 		width: auto;
 	}
 }
+
+
+
+
+

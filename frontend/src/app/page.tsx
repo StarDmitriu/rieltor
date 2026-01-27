@@ -110,16 +110,17 @@ export default function HomePage() {
 			<section className='hero'>
 				<div className='container'>
 					<div className='hero-card'>
-						<h1 className='hero-title'>ЧатРассылка</h1>
-						<p className='hero-subtitle'>
-							Автоматическая рассылка сообщений
-							<br />
-							по группам в WhatsApp и Telegram
-						</p>
+						<div className='hero-cont'>
+							<h1 className='hero-title'>ЧатРассылка</h1>
+							<p className='hero-subtitle'>
+								Автоматическая рассылка сообщений по группам в WhatsApp и
+								Telegram
+							</p>
 
-						<a className='hero-button' href='#pricing'>
-							Начать сотрудничество
-						</a>
+							<a className='hero-button' href='#zaayka'>
+								Отправить заявку
+							</a>
+						</div>
 					</div>
 				</div>
 			</section>
@@ -305,7 +306,7 @@ export default function HomePage() {
 				</div>
 			</section>
 
-			<section className='section section-contact'>
+			<section id='zaayka' className='section section-contact'>
 				<div className='container'>
 					<h2 className='section-title'>Форма обратной связи</h2>
 

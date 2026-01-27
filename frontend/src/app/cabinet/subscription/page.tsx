@@ -241,8 +241,8 @@ export default function SubscriptionPage() {
 							style={{ padding: 10, marginRight: 8 }}
 						>
 							{cancelAtPeriodEnd
-								? 'Включить автопродление'
-								: 'Отключить автопродление'}
+								? 'Подключить подписку'
+								: 'Отменить подписку'}
 						</button>
 					) : null}
 
@@ -271,7 +271,7 @@ export default function SubscriptionPage() {
 
 					<button
 						onClick={() => router.push('/cabinet')}
-						style={{ padding: 10, marginLeft: 8 }}
+						style={{ padding: 10, marginTop: 10 }}
 					>
 						Назад в кабинет
 					</button>

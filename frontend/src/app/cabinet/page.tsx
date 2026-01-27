@@ -72,6 +72,7 @@ export default function CabinetPage() {
 	}
 
 	const goSubscription = () => router.push('/cabinet/subscription')
+	const goSupport = () => router.push('/cabinet/support')
 
 	const dash = () => {
 		router.push('/dashboard/groups')
@@ -136,6 +137,7 @@ export default function CabinetPage() {
 				</div>
 				<div className='profile-btns'>
 					<button onClick={goSubscription}>Ваша подписка</button>
+					<button onClick={goSupport}>Связаться с поддержкой</button>
 				</div>
 			</div>
 

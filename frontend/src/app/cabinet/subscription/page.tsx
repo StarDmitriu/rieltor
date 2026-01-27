@@ -153,8 +153,13 @@ export default function SubscriptionPage() {
 	// ✅ success=true — используем РЕАЛЬНЫЕ поля ответа
 	const sub = data.subscription || {}
 	const status = data.status || sub.status || 'none'
-	const daysLeft = data.accessDaysLeft ?? 0
 	const endsAt = data.accessEndsAt ?? null
+	const daysLeft = endsAt
+		? Math.max(
+				0,
+				Math.floor((new Date(endsAt).getTime() - Date.now()) / 86400000)
+		  )
+		: data.accessDaysLeft ?? 0
 	const planCode = String(sub.plan_code || 'wa_tg')
 	const cancelAtPeriodEnd = !!sub.cancel_at_period_end
 

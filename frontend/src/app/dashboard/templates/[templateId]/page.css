@@ -8,7 +8,7 @@
 
 .tedit__wrap{
   width:100%;
-  max-width: 860px;
+  max-width: 1120px;
   text-align:center;
 }
 
@@ -241,7 +241,6 @@
 .tedit-table .ant-table-thead > tr > th{
   background: rgba(248,241,201,.55);
   font-weight: 700;
-  font-size: 12px;
 }
 .tedit-table .ant-pagination{
   margin: 10px 6px 0;
@@ -284,8 +283,25 @@
 }
 
 /* ===== responsive ===== */
+@media (max-width: 1100px) {
+  
+  .tedit-input,
+  .tedit-textarea{
+    width: 380px;
+  }
+}
 @media (max-width: 920px){
   .tedit__title{ font-size: 46px; }
+  .tedit-cont{
+    display: flex;
+    gap: 20px;
+    flex-direction: column;
+  }
+  .tedit-input,
+  .tedit-textarea{
+    max-width: 520px;
+    width: 100%;
+  }
 }
 
 @media (max-width: 640px){
@@ -313,12 +329,16 @@
   }
 }
 
-/* primary pill for "Сохранить группы" */
+.tedit-cont{
+  display: flex;
+  gap: 20px;
+  justify-content: space-between;
+}
+
 .tedit-pill--primary{
   background: #fff;
 }
 
-/* delete button style */
 .tedit-btn--danger{
   border-color: rgba(255,0,0,.35);
   color: rgba(255,0,0,.75);

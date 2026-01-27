@@ -264,6 +264,23 @@ export class ProdamusController {
       return { success: true };
     }
 
+    const { data: existingSub } = await supabase
+      .from('subscriptions')
+      .select('plan_code')
+      .eq('user_id', paymentRow.user_id)
+      .maybeSingle();
+
+    const normalizePlan = (value: any) =>
+      String(value || '').toLowerCase().trim();
+    const existingPlan = normalizePlan(existingSub?.plan_code);
+    const incomingPlan = normalizePlan(planCode);
+    const mergedPlan =
+      existingPlan === 'wa_tg' || incomingPlan === 'wa_tg'
+        ? 'wa_tg'
+        : existingPlan && incomingPlan && existingPlan !== incomingPlan
+          ? 'wa_tg'
+          : incomingPlan || existingPlan || 'wa_tg';
+
     const nowMs = Date.now();
     let baseEndMs = nowMs;
 
@@ -288,7 +305,7 @@ export class ProdamusController {
       {
         user_id: paymentRow.user_id,
         status: 'active',
-        plan_code: planCode,
+        plan_code: mergedPlan,
         provider: 'prodamus',
         current_period_start: startIso,
         current_period_end: endIso,

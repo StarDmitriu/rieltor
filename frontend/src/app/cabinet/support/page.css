@@ -1,0 +1,59 @@
+.support {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 80px 16px;
+}
+
+.support-card {
+  width: 100%;
+  max-width: 520px;
+  background: #f7f5d3;
+  border-radius: 24px;
+  padding: 32px 28px;
+  text-align: center;
+}
+
+.support-title {
+  margin: 0 0 12px;
+  font-size: 32px;
+  font-weight: 700;
+}
+
+.support-text {
+  margin: 0 0 24px;
+  font-size: 16px;
+}
+
+.support-item {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  font-size: 16px;
+  margin-bottom: 10px;
+}
+
+.support-label {
+  font-weight: 700;
+}
+
+.support-value {
+  font-weight: 500;
+}
+
+.support-actions {
+  margin-top: 20px;
+}
+
+.support-actions button {
+  border: 1px solid #8e8e8e;
+  border-radius: 20px;
+  padding: 10px 22px;
+  background: transparent;
+  font-weight: 600;
+}
+
+.support-actions button:hover{
+  background: #000;
+}

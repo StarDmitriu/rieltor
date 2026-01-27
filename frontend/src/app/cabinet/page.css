@@ -32,10 +32,11 @@ p{
   margin-top: 15px;
   display: flex;
   gap: 10px;
-  justify-content: space-between;
+  justify-content: space-around;
   button{
     max-width: 210px;
     width: 100%;
+    padding: 0;
   }
 }
 

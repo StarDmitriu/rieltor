@@ -485,6 +485,9 @@ export default function HomePage() {
 						<div className='footer-title'>ЧатРассылка</div>
 					</footer>
 				</div>
+						
+				<p>ИНН 233200403399</p>
+				<p>Зыбцева Любовь Васильевна</p>
 			</section>
 		</main>
 	)

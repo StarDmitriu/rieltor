@@ -119,8 +119,8 @@ export default function CabinetPage() {
 						{user.gender === 'm'
 							? 'Мужской'
 							: user.gender === 'f'
-							? 'Женский'
-							: 'Не указан'}
+								? 'Женский'
+								: 'Не указан'}
 					</p>
 				</div>
 				<div className='profile-text'>
@@ -132,8 +132,7 @@ export default function CabinetPage() {
 					<p>{user.birthday ? user.birthday : 'Не указана'}</p>
 				</div>
 				<div className='profile-text'>
-					<strong>Город</strong>{' '}
-					<p>{user.city || 'Не указан'}</p>
+					<strong>Город</strong> <p>{user.city || 'Не указан'}</p>
 				</div>
 				<div className='profile-btns'>
 					<button onClick={goSubscription}>Ваша подписка</button>
@@ -148,7 +147,8 @@ export default function CabinetPage() {
 				<WhatsappConnectBlock userId={user.id} />
 			</div>
 
-			<div className='groups'>
+			{/*
+				<div className='groups'>
 				<h2 className='groups-title'>
 					Выберите группы, в которые отправится сообщение
 				</h2>
@@ -156,6 +156,7 @@ export default function CabinetPage() {
 					<button onClick={dash}>Выбрать группы для отправки</button>
 				</div>
 			</div>
+				*/}
 
 			<div className='pattern'>
 				<h2 className='pattern-title'>Создание рассылки</h2>
@@ -179,9 +180,9 @@ export default function CabinetPage() {
 							typeof window !== 'undefined'
 								? `${
 										window.location.origin
-								  }/auth/register?ref=${encodeURIComponent(
-										user.referral_code as string
-								  )}`
+									}/auth/register?ref=${encodeURIComponent(
+										user.referral_code as string,
+									)}`
 								: ''
 
 						return (

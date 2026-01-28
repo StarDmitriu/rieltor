@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Cookies from 'js-cookie'
-import { Button, Table, message, Space, Checkbox, Input, Select } from 'antd'
+import { Button, Table, message, Space, Checkbox, Input } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { useRouter } from 'next/navigation'
 import styles from './groups.module.css'
@@ -260,18 +260,6 @@ export default function GroupsPage() {
 								onChange={e => setSelected(row.wa_group_id, e.target.checked)}
 							/>
 							<div className={styles.rowTitle}>{name}</div>
-						</div>
-						<div className={styles.intervalWrap}>
-							<Select
-								allowClear
-								placeholder='Интервал'
-								size='small'
-								className={styles.intervalSelect}
-								value={row.send_time ?? undefined}
-								options={SEND_INTERVAL_OPTIONS}
-								disabled={!!savingTimeMap[row.wa_group_id]}
-								onChange={v => setSendTime(row.wa_group_id, v ?? null)}
-							/>
 						</div>
 					</div>
 				)

@@ -263,8 +263,8 @@ export default function TemplateEditPage() {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [userId, templateId, channel])
 
-	const groupColumns: ColumnsType<GroupRow> = useMemo(
-		() => [
+	const groupColumns: ColumnsType<GroupRow> = useMemo(() => {
+		const cols: ColumnsType<GroupRow> = [
 			{
 				title: 'Название',
 				dataIndex: 'title',
@@ -272,7 +272,10 @@ export default function TemplateEditPage() {
 				render: (v: any) =>
 					v || <span style={{ opacity: 0.6 }}>без названия</span>,
 			},
-			{
+		]
+
+		if (channel === 'tg') {
+			cols.push({
 				title: 'Интервал',
 				key: 'send_time',
 				width: 200,
@@ -288,17 +291,19 @@ export default function TemplateEditPage() {
 						onChange={v => setGroupSendTime(channel, row.jid, v ?? null)}
 					/>
 				),
-			},
-			{
-				title: 'Участники',
-				dataIndex: 'participants_count',
-				key: 'participants_count',
-				width: 120,
-				render: (v: any) => (typeof v === 'number' ? v : '-'),
-			},
-		],
-		[channel, savingTimeMap, setGroupSendTime]
-	)
+			})
+		}
+
+		cols.push({
+			title: 'Участники',
+			dataIndex: 'participants_count',
+			key: 'participants_count',
+			width: 120,
+			render: (v: any) => (typeof v === 'number' ? v : '-'),
+		})
+
+		return cols
+	}, [channel, savingTimeMap, setGroupSendTime])
 
 	const uploadProps: UploadProps = useMemo(
 		() => ({

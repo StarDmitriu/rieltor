@@ -224,8 +224,8 @@ export default function TemplateCreatePage() {
 		[userId, token]
 	)
 
-	const groupColumns: ColumnsType<UiGroupRow> = useMemo(
-		() => [
+	const groupColumns: ColumnsType<UiGroupRow> = useMemo(() => {
+		const cols: ColumnsType<UiGroupRow> = [
 			{
 				title: 'Название',
 				dataIndex: 'title',
@@ -233,7 +233,10 @@ export default function TemplateCreatePage() {
 				render: (v: any) =>
 					v || <span style={{ opacity: 0.6 }}>без названия</span>,
 			},
-			{
+		]
+
+		if (channel === 'tg') {
+			cols.push({
 				title: 'Интервал',
 				key: 'send_time',
 				width: 200,
@@ -249,17 +252,19 @@ export default function TemplateCreatePage() {
 						onChange={v => setGroupSendTime(channel, row.jid, v ?? null)}
 					/>
 				),
-			},
-			{
-				title: 'Участники',
-				dataIndex: 'participants_count',
-				key: 'participants_count',
-				width: 120,
-				render: (v: any) => (typeof v === 'number' ? v : '—'),
-			},
-		],
-		[channel, savingTimeMap, setGroupSendTime]
-	)
+			})
+		}
+
+		cols.push({
+			title: 'Участники',
+			dataIndex: 'participants_count',
+			key: 'participants_count',
+			width: 120,
+			render: (v: any) => (typeof v === 'number' ? v : '-'),
+		})
+
+		return cols
+	}, [channel, savingTimeMap, setGroupSendTime])
 
 	const currentGroups = channel === 'wa' ? waGroups : tgGroups
 	const currentSelected = channel === 'wa' ? waSelected : tgSelected

@@ -13,6 +13,7 @@ import {
 import { useRouter } from 'next/navigation'
 import { apiGet, apiPost } from '@/lib/api'
 import dayjs from 'dayjs'
+import './page.css'
 
 type ActiveAllResp =
 	| {
@@ -313,6 +314,7 @@ export default function CampaignsHomePage() {
 
 			<div style={{ marginBottom: 12 }}>
 				<Segmented
+					className='campaigns-segmented'
 					value={startMode}
 					onChange={v => setStartMode(v as any)}
 					options={[

@@ -399,6 +399,13 @@ export default function TemplatesPage() {
 						Создать шаблон
 					</button>
 
+					<button
+						className='tpl-btn'
+						onClick={() => router.push('/dashboard/campaigns')}
+					>
+						Перейти в рассылки
+					</button>
+
 					<button className='tpl-btn' onClick={() => load()} disabled={loading}>
 						{loading ? 'Обновляем...' : 'Обновить'}
 					</button>

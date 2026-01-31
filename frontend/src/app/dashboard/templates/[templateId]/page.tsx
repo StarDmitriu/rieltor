@@ -80,8 +80,7 @@ export default function TemplateEditPage() {
 	const fetchMe = async () => {
 		if (!token) {
 			router.push('/auth/phone')
-			return
-		}
+			return;		}
 		setLoadingMe(true)
 		try {
 			const res = await fetch(`${BACKEND_URL}/auth/me`, {
@@ -92,8 +91,7 @@ export default function TemplateEditPage() {
 			if (!json?.success) {
 				Cookies.remove('token')
 				router.push('/auth/phone')
-				return
-			}
+				return;			}
 			setUserId(String(json.user.id))
 		} catch (e) {
 			console.error(e)
@@ -114,8 +112,7 @@ export default function TemplateEditPage() {
 		if (!json?.success) {
 			message.error('Не удалось загрузить группы')
 			setGroups([])
-			return
-		}
+			return;		}
 
 		if (ch === 'tg') {
 			const selectedOnly = (json.groups || []).filter(
@@ -154,8 +151,7 @@ export default function TemplateEditPage() {
 		if (!json?.success) {
 			message.error('Не удалось загрузить выбранные группы')
 			setSelectedGroupJids([])
-			return
-		}
+			return;		}
 		setSelectedGroupJids((json.groupJids || []).map((x: any) => String(x)))
 	}
 
@@ -171,8 +167,7 @@ export default function TemplateEditPage() {
 			})
 			if (!json?.success) {
 				message.error(`Ошибка сохранения групп: ${json?.message || 'unknown'}`)
-				return
-			}
+				return;			}
 			message.success(
 				`Группы сохранены (${channel}): ${
 					json.count ?? selectedGroupJids.length
@@ -227,8 +222,7 @@ export default function TemplateEditPage() {
 			const json: any = await apiGet(`/templates/get/${templateId}`)
 			if (!json?.success) {
 				message.error(`Ошибка загрузки: ${json?.message || 'unknown'}`)
-				return
-			}
+				return;			}
 
 			const tpl: TemplateRow = json.template
 			form.setFieldsValue({
@@ -376,8 +370,7 @@ export default function TemplateEditPage() {
 			const json: any = await apiPost('/templates/update', payload)
 			if (!json?.success) {
 				message.error(`Ошибка сохранения: ${json?.message || 'unknown'}`)
-				return
-			}
+				return;			}
 
 			message.success('Шаблон сохранен')
 			router.push('/dashboard/templates')
@@ -401,8 +394,7 @@ export default function TemplateEditPage() {
 			})
 			if (!json?.success) {
 				message.error(`Ошибка удаления: ${json?.message || 'unknown'}`)
-				return
-			}
+				return;			}
 			message.success('Шаблон удален')
 			router.push('/dashboard/templates')
 		} catch (e) {

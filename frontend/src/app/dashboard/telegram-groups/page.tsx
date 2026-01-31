@@ -112,8 +112,7 @@ export default function TelegramGroupsPage() {
 				}{
 					message.error(`Ошибка синка TG групп: ${data.message || 'unknown'}`)
 				}
-				return
-			}
+				return;			}
 			message.success(`TG группы обновлены: ${data.count}`)
 			await fetchGroups(userId)
 		} catch (e) {

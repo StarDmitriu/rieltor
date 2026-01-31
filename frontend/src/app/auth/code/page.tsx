@@ -30,8 +30,7 @@ function CodeInner() {
 	const verify = async () => {
 		if (!code.trim()) {
 			notify('Введите код', { type: 'error'})
-			return
-		}
+			return;		}
 
 		setLoading(true)
 		try {
@@ -68,15 +67,13 @@ function CodeInner() {
 						}
 						router.push(`/auth/register?phone=${encodeURIComponent(phone)}`)
 					}
-					return
-				}
+					return;				}
 
 				notify(data?.message || 'Ошибка при проверке кода', {
 					type: 'error',
 					title: 'Ошибка',
 				})
-				return
-			}
+				return;			}
 
 			if (mode === 'register' && typeof window !== 'undefined') {
 				sessionStorage.removeItem('registerProfile')
@@ -100,8 +97,7 @@ function CodeInner() {
 			notify('Телефон отсутствует', {
 				type: 'error',
 			})
-			return
-		}
+			return;		}
 
 		setResendLoading(true)
 		try {
@@ -118,8 +114,7 @@ function CodeInner() {
 					type: 'error',
 					title: 'Ошибка',
 				})
-				return
-			}
+				return;			}
 
 			notify('Код отправлен повторно!', {
 				type: 'success',

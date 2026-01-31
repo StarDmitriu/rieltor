@@ -81,8 +81,7 @@ export default function AdminPage() {
 	useEffect(() => {
 		if (!token) {
 			router.push('/auth/phone')
-			return
-		}
+			return;		}
 
 		const load = async () => {
 			setLoading(true)
@@ -102,15 +101,13 @@ export default function AdminPage() {
 							: `Ошибка загрузки: ${res.status} ${txt}`
 					)
 					setUsers([])
-					return
-				}
+					return;				}
 
 				const json = await res.json()
 				if (!json?.success) {
 					setErr(json?.message || 'Не удалось загрузить список пользователей')
 					setUsers([])
-					return
-				}
+					return;				}
 
 				setUsers(json.users || [])
 			} catch (e) {
@@ -166,14 +163,12 @@ export default function AdminPage() {
 						: `Ошибка загрузки: ${res.status} ${txt}`
 				)
 				setUsers([])
-				return
-			}
+				return;			}
 			const json = await res.json()
 			if (!json?.success) {
 				setErr(json?.message || 'Не удалось загрузить')
 				setUsers([])
-				return
-			}
+				return;			}
 			setUsers(json.users || [])
 		} catch (e) {
 			console.error(e)

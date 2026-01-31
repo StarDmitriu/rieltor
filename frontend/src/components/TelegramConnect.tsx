@@ -87,14 +87,12 @@ export function TelegramConnect({ userId }: { userId: string }) {
 					setErrorText(data?.message || 'Не удалось начать подключение')
 				}
 				setLoading(false)
-				return
-			}
+				return;			}
 
 		} catch {
 			setErrorText('Не удалось начать подключение. Проверь бэкенд.')
 			setLoading(false)
-			return
-		}
+			return;		}
 
 		await loadStatus()
 		startPolling()

@@ -174,8 +174,7 @@ function CampaignInner() {
 						extra ? ` (${extra})` : ''
 					}`
 				)
-				return
-			}
+				return;			}
 			message.success(`Остановлено: ${cid}`)
 			await load()
 		} catch (e) {

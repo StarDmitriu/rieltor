@@ -57,8 +57,7 @@ function RegisterInner() {
 					type: 'error',
 					title: 'Ошибка',
 				})
-				return
-			}
+				return;			}
 
 			// 2) сохраняем профиль (его подхватит verify-code в /auth/code)
 			const profile = {

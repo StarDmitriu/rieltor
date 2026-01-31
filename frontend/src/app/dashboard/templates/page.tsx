@@ -64,8 +64,7 @@ export default function TemplatesPage() {
 	const fetchMe = async () => {
 		if (!token) {
 			router.push('/auth/phone')
-			return
-		}
+			return;		}
 		try {
 			const res = await fetch(`${BACKEND_URL}/auth/me`, {
 				headers: { Authorization: `Bearer ${token}` },
@@ -75,8 +74,7 @@ export default function TemplatesPage() {
 			if (!json?.success) {
 				Cookies.remove('token')
 				router.push('/auth/phone')
-				return
-			}
+				return;			}
 			setUserId(String(json.user.id))
 		} catch (e) {
 			console.error(e)
@@ -94,8 +92,7 @@ export default function TemplatesPage() {
 				message.error(
 					`Ошибка загрузки шаблонов: ${json?.message || 'unknown'}`
 				)
-				return
-			}
+				return;			}
 			setRows(json.templates || [])
 		} catch (e) {
 			console.error(e)
@@ -117,8 +114,7 @@ export default function TemplatesPage() {
 			const data = await res.json()
 			if (!data?.success) {
 				message.error('Не удалось загрузить группы из БД')
-				return
-			}
+				return;			}
 
 			if (ch === 'wa') {
 				const mapped: UiGroupRow[] = (data.groups || []).map((g: any) => ({
@@ -163,19 +159,15 @@ export default function TemplatesPage() {
 			if (!data?.success) {
 				if (data.message === 'whatsapp_not_connected') {
 					message.error('WhatsApp не подключён. Подключите WhatsApp по QR.')
-					return
-				}
+					return;				}
 				if (data.message === 'telegram_not_connected') {
 					message.error('Telegram не подключён. Подключите Telegram.')
-					return
-				}
+					return;				}
 				if (data.message === 'telegram_timeout') {
 					message.error('Telegram временно не отвечает. Попробуйте позже.')
-					return
-				}
+					return;				}
 				message.error(`Ошибка синка групп: ${data.message || 'unknown'}`)
-				return
-			}
+				return;			}
 		} catch (e) {
 			console.error(e)
 			message.error('Ошибка сети при синхронизации групп')
@@ -501,8 +493,7 @@ export default function TemplatesPage() {
 															message.error(
 																`Ошибка удаления: ${res?.message || 'unknown'}`
 															)
-															return
-														}
+															return;														}
 														message.success('Шаблон удален')
 														load()
 													}}

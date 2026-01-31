@@ -33,8 +33,7 @@ export default function SubscriptionPage() {
 		const token = Cookies.get('token')
 		if (!token) {
 			router.push('/auth/phone')
-			return
-		}
+			return;		}
 
 		const load = async () => {
 			setLoading(true)
@@ -70,8 +69,7 @@ export default function SubscriptionPage() {
 					type: 'error',
 					title: 'Ошибка',
 				})
-				return
-			}
+				return;			}
 
 			notify('Пробный период активирован!', { type: 'success' })
 
@@ -100,8 +98,7 @@ export default function SubscriptionPage() {
 				notify(res?.message || 'Не удалось создать оплату', {
 					type: 'error',
 				})
-				return
-			}
+				return;			}
 			window.location.href = res.payment_url
 		} catch (e) {
 			console.error(e)
@@ -119,8 +116,7 @@ export default function SubscriptionPage() {
 				notify(res?.message || 'Не удалось обновить подписку', {
 					type: 'error',
 				})
-				return
-			}
+				return;			}
 			const me = await fetch(`${backendUrl}/subscriptions/me`, {
 				headers: {
 					Authorization: `Bearer ${Cookies.get('token')}`,

@@ -22,8 +22,7 @@ export default function LoginPage() {
 	const sendCode = async () => {
 		if (!phone.trim()) {
 			notify('Введите номер телефона', { type: 'warning' })
-			return
-		}
+			return;		}
 
 		setLoading(true)
 		try {
@@ -37,8 +36,7 @@ export default function LoginPage() {
 
 			if (!data?.success) {
 				notify(data?.message || 'Ошибка при отправке кода', { type: 'error', title: 'Ошибка' })
-				return
-			}
+				return;			}
 
 			router.push(
 				`/auth/code?phone=${encodeURIComponent(phone.trim())}&mode=login`

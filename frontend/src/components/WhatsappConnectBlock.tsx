@@ -102,8 +102,7 @@ export function WhatsappConnectBlock({ userId }: { userId: string }) {
 		} catch (e) {
 			setErrorText('Не удалось запустить подключение. Проверьте бэкенд.')
 			setLoading(false)
-			return
-		}
+			return;		}
 
 		// ключевое: сразу дергаем статус и включаем поллинг
 		await loadStatus()

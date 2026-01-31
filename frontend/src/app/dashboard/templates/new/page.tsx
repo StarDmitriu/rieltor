@@ -76,8 +76,7 @@ export default function TemplateCreatePage() {
 	const fetchMe = async () => {
 		if (!token) {
 			router.push('/auth/phone')
-			return
-		}
+			return;		}
 
 		try {
 			const res = await fetch(`${BACKEND_URL}/auth/me`, {
@@ -88,8 +87,7 @@ export default function TemplateCreatePage() {
 			if (!json?.success) {
 				Cookies.remove('token')
 				router.push('/auth/phone')
-				return
-			}
+				return;			}
 			setUserId(String(json.user.id))
 		} catch (e) {
 			console.error(e)
@@ -106,8 +104,7 @@ export default function TemplateCreatePage() {
 			if (!json?.success) {
 				message.error('Не удалось загрузить WA группы')
 				setWaGroups([])
-				return
-			}
+				return;			}
 
 			// announcement не даём выбирать (как и в кампании)
 			const usable = (json.groups || []).filter((g: any) => !g.is_announcement)
@@ -136,8 +133,7 @@ export default function TemplateCreatePage() {
 			if (!json?.success) {
 				message.error('Не удалось загрузить TG группы')
 				setTgGroups([])
-				return
-			}
+				return;			}
 
 			// ✅ показываем только те TG группы, которые выбраны на странице telegram-groups (is_selected=true)
 			const selectedOnly = (json.groups || []).filter(
@@ -364,14 +360,12 @@ export default function TemplateCreatePage() {
 			const json: any = await apiPost('/templates/create', payload)
 			if (!json?.success) {
 				message.error(`Ошибка создания: ${json?.message || 'unknown'}`)
-				return
-			}
+				return;			}
 
 			const templateId = String(json.templateId || '')
 			if (!templateId) {
 				message.error('templateId не пришёл')
-				return
-			}
+				return;			}
 
 			// ✅ сразу сохраняем выбранные группы (и WA и TG)
 			const ok = await saveTargetsForTemplate(templateId)

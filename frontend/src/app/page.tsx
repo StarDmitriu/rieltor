@@ -319,7 +319,7 @@ export default function HomePage() {
 								notify('Нужно согласие на обработку персональных данных', {
 									type: 'warning',
 								})
-								return
+								return;
 							}
 
 							// простая проверка обязательных
@@ -371,7 +371,7 @@ export default function HomePage() {
 										type: 'error',
 										title: 'Ошибка',
 									})
-									return
+									return;
 								}
 
 								notify('Заявка отправлена!', {

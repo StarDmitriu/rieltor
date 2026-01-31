@@ -15,8 +15,7 @@ export function TemplatesSyncBlock({ userId }: { userId: string }) {
 			const data: any = await apiPost('/templates/sync', { userId })
 			if (!data?.success) {
 				message.error(`Ошибка синхронизации: ${data?.message || 'unknown'}`)
-				return
-			}
+				return;			}
 			message.success(`Шаблоны синхронизированы: ${data?.count ?? 'ok'}`)
 		} catch (e) {
 			console.error(e)

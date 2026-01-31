@@ -38,8 +38,7 @@ export default function CabinetPage() {
 		const token = Cookies.get('token')
 		if (!token) {
 			router.push('/auth/phone')
-			return
-		}
+			return;		}
 
 		const loadMe = async () => {
 			try {
@@ -51,8 +50,7 @@ export default function CabinetPage() {
 				if (!data.success) {
 					Cookies.remove('token')
 					router.push('/auth/phone')
-					return
-				}
+					return;				}
 				setUser(data.user)
 			} catch (e) {
 				console.error(e)

@@ -93,8 +93,7 @@ export default function CampaignsHomePage() {
 			const json: ActiveAllResp = await apiGet(`/campaigns/active`)
 			if (!json.success) {
 				message.error(`Ошибка active: ${json.message}`)
-				return
-			}
+				return;			}
 			setWaCampaignId(json.wa?.campaignId || '')
 			setTgCampaignId(json.tg?.campaignId || '')
 		} catch (e) {
@@ -161,15 +160,13 @@ export default function CampaignsHomePage() {
 				const wa = await startOne('wa')
 				setWaCampaignId(wa.cid)
 				message.success(wa.alreadyRunning ? 'WA уже запущена' : 'WA запущена')
-				return
-			}
+				return;			}
 
 			if (startMode === 'tg') {
 				const tg = await startOne('tg')
 				setTgCampaignId(tg.cid)
 				message.success(tg.alreadyRunning ? 'TG уже запущена' : 'TG запущена')
-				return
-			}
+				return;			}
 
 			const wa = await startOne('wa')
 			const tg = await startOne('tg')

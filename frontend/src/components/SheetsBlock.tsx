@@ -23,8 +23,7 @@ export function SheetsBlock({
 			const data: any = await apiPost('/sheets/create', { userId })
 			if (!data?.success) {
 				message.error(`Ошибка создания таблицы: ${data?.message || 'unknown'}`)
-				return
-			}
+				return;			}
 			const url = data?.url || data?.gsheet_url || data?.sheetUrl
 			if (url) {
 				message.success('Таблица создана')

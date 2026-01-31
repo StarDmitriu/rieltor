@@ -72,8 +72,7 @@ export default function GroupsPage() {
 			const data: MeResponse = await res.json()
 			if (!data.success) {
 				message.error(data.message || 'Не удалось получить /auth/me')
-				return
-			}
+				return;			}
 			setUserId(data.user.id)
 		} catch (e) {
 			console.error(e)
@@ -119,8 +118,7 @@ export default function GroupsPage() {
 				} else {
 					message.error(`Ошибка синка групп: ${data.message || 'unknown'}`)
 				}
-				return
-			}
+				return;			}
 			message.success(`Группы обновлены: ${data.count}`)
 			await fetchGroups(userId)
 		} catch (e) {

@@ -101,8 +101,7 @@ export function TelegramQrConnect({ userId }: { userId: string }) {
 		} catch {
 			setErrorText('Не удалось запустить QR-подключение Telegram')
 			setLoading(false)
-			return
-		}
+			return;		}
 
 		await loadStatus().catch(() => {})
 		startPolling()
@@ -131,8 +130,7 @@ export function TelegramQrConnect({ userId }: { userId: string }) {
 					setErrorText(data?.message || 'Не удалось подтвердить 2FA пароль')
 				}
 				setLoading(false)
-				return
-			}
+				return;			}
 
 			setPassword('')
 			await loadStatus().catch(() => {})

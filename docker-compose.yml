@@ -50,6 +50,12 @@ services:
       #SUPABASE_URL: ${SUPABASE_URL}
       #SUPABASE_KEY: ${SUPABASE_KEY}
       #JWT_SECRET: ${JWT_SECRET}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/ >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 20
+      start_period: 20s
 
 
     depends_on:
@@ -86,9 +92,8 @@ services:
       TURBOPACK: "0"
 
     depends_on:
-      - backend
-
-
+      backend:
+        condition: service_healthy
     restart: unless-stopped
     stop_grace_period: 15s
     cpus: "1.00"
@@ -98,6 +103,12 @@ services:
       options:
         max-size: "20m"
         max-file: "3"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3001/ >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 20
+      start_period: 30s
 
   nginx:
     image: nginx:alpine
@@ -111,8 +122,10 @@ services:
       - ./deploy/certbot/conf:/etc/letsencrypt:ro
 
     depends_on:
-      - frontend
-      - backend
+      frontend:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
 
     restart: unless-stopped
     stop_grace_period: 10s

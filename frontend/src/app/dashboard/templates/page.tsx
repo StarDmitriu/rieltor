@@ -57,8 +57,6 @@ export default function TemplatesPage() {
 	const [savingTimeMap, setSavingTimeMap] = useState<Record<string, boolean>>(
 		{}
 	)
-	const [autoSynced, setAutoSynced] = useState(false)
-
 	const token = Cookies.get('token') || ''
 
 	const fetchMe = async () => {
@@ -126,6 +124,7 @@ export default function TemplatesPage() {
 					disabled: !!g.is_announcement,
 				}))
 				setWaGroups(mapped)
+				return mapped.length
 			} else {
 				const mapped: UiGroupRow[] = (data.groups || []).map((g: any) => ({
 					id: String(g.tg_chat_id),
@@ -135,6 +134,7 @@ export default function TemplatesPage() {
 					send_time: g.send_time ?? null,
 				}))
 				setTgGroups(mapped)
+				return mapped.length
 			}
 		} catch (e) {
 			console.error(e)
@@ -313,17 +313,19 @@ export default function TemplatesPage() {
 
 	useEffect(() => {
 		if (!userId) return
-		fetchGroups(userId, 'wa')
-		fetchGroups(userId, 'tg')
-		if (!autoSynced) {
-			setAutoSynced(true)
-			void (async () => {
+		void (async () => {
+			const waCount = await fetchGroups(userId, 'wa')
+			const tgCount = await fetchGroups(userId, 'tg')
+
+			if (!waCount) {
 				await syncGroups(userId, 'wa')
-				await syncGroups(userId, 'tg')
 				await fetchGroups(userId, 'wa')
+			}
+			if (!tgCount) {
+				await syncGroups(userId, 'tg')
 				await fetchGroups(userId, 'tg')
-			})()
-		}
+			}
+		})()
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [userId])
 
@@ -375,7 +377,7 @@ export default function TemplatesPage() {
 			render: (v: any) => (typeof v === 'number' ? v : '-'),
 		})
 
-		return cols
+		return cols;
 	}, [groupChannel, savingTimeMap])
 
 	return (

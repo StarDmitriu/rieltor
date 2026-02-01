@@ -50,7 +50,6 @@ export default function TelegramGroupsPage() {
 	)
 	const [groups, setGroups] = useState<TgGroupRow[]>([])
 	const [q, setQ] = useState('')
-	const [autoSynced, setAutoSynced] = useState(false)
 	const router = useRouter()
 
 
@@ -83,7 +82,11 @@ export default function TelegramGroupsPage() {
 				cache: 'no-store',
 			})
 			const data = await res.json()
-			if (data?.success) setGroups(data.groups || [])
+			if (data?.success) {
+				const next = data.groups || []
+				setGroups(next)
+				return next.length
+			}
 			else message.error('Не удалось загрузить группы Telegram из БД')
 		} catch (e) {
 			console.error(e)
@@ -218,11 +221,13 @@ export default function TelegramGroupsPage() {
 
 	useEffect(() => {
 		if (!userId) return
-		fetchGroups(userId)
-		if (!autoSynced) {
-			setAutoSynced(true)
-			syncGroups()
-		}
+		void (async () => {
+			const count = await fetchGroups(userId)
+			if (!count) {
+				await syncGroups()
+				await fetchGroups(userId)
+			}
+		})()
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [userId])
 

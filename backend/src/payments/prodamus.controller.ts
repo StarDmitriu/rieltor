@@ -315,6 +315,67 @@ export class ProdamusController {
       { onConflict: 'user_id' },
     );
 
+    // --- referral reward: add days to referrer when referred user pays ---
+    try {
+      const { data: referral } = await supabase
+        .from('referrals')
+        .select('id, referrer_user_id, status, reward_type, reward_value')
+        .eq('referred_user_id', paymentRow.user_id)
+        .maybeSingle();
+
+      const isRegistered = String(referral?.status || '').trim() === 'registered';
+      const rewardDays =
+        String(referral?.reward_type || '').trim() === 'days'
+          ? Number(referral?.reward_value || 0)
+          : 0;
+
+      if (referral?.referrer_user_id && isRegistered && rewardDays > 0) {
+        const { data: refSub } = await supabase
+          .from('subscriptions')
+          .select('*')
+          .eq('user_id', referral.referrer_user_id)
+          .maybeSingle();
+
+        const nowMs = Date.now();
+        const currentEndMs = refSub?.current_period_end
+          ? new Date(refSub.current_period_end).getTime()
+          : 0;
+        const baseEndMs = currentEndMs > nowMs ? currentEndMs : nowMs;
+        const newEndIso = new Date(
+          baseEndMs + rewardDays * 24 * 60 * 60 * 1000,
+        ).toISOString();
+
+        if (refSub) {
+          await supabase
+            .from('subscriptions')
+            .update({
+              status: 'active',
+              current_period_end: newEndIso,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('user_id', referral.referrer_user_id);
+        } else {
+          await supabase.from('subscriptions').insert({
+            user_id: referral.referrer_user_id,
+            status: 'active',
+            plan_code: 'wa_tg',
+            provider: 'referral',
+            current_period_start: new Date().toISOString(),
+            current_period_end: newEndIso,
+            cancel_at_period_end: false,
+            updated_at: new Date().toISOString(),
+          });
+        }
+
+        await supabase
+          .from('referrals')
+          .update({ status: 'rewarded' })
+          .eq('id', referral.id);
+      }
+    } catch (e) {
+      console.warn('referral reward skipped due to error:', e);
+    }
+
     return { success: true };
   }
 }

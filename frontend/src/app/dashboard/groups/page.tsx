@@ -58,7 +58,6 @@ export default function GroupsPage() {
 	)
 	const [groups, setGroups] = useState<GroupRow[]>([])
 	const [q, setQ] = useState('')
-	const [autoSynced, setAutoSynced] = useState(false)
 
 	const token = Cookies.get('token') || ''
 
@@ -90,7 +89,11 @@ export default function GroupsPage() {
 				cache: 'no-store',
 			})
 			const data: GroupsResponse = await res.json()
-			if ((data as any).success) setGroups((data as any).groups || [])
+			if ((data as any).success) {
+				const next = (data as any).groups || []
+				setGroups(next)
+				return next.length
+			}
 			else message.error('Не удалось загрузить группы из БД')
 		} catch (e) {
 			console.error(e)
@@ -224,11 +227,13 @@ export default function GroupsPage() {
 
 	useEffect(() => {
 		if (!userId) return
-		fetchGroups(userId)
-		if (!autoSynced) {
-			setAutoSynced(true)
-			syncGroups()
-		}
+		void (async () => {
+			const count = await fetchGroups(userId)
+			if (!count) {
+				await syncGroups()
+				await fetchGroups(userId)
+			}
+		})()
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [userId])
 

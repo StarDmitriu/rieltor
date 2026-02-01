@@ -32,5 +32,4 @@ COPY --from=builder /app/public ./public
 EXPOSE 3001
 CMD ["npm", "run", "start", "--", "-p", "3001"]
 
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh \
- && sed -i 's/\r$//' /usr/local/bin/docker-entrypoint.sh
+

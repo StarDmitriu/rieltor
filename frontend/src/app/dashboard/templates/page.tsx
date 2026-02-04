@@ -453,6 +453,15 @@ export default function TemplatesPage() {
 		return cols;
 	}, [groupChannel, savingTimeMap])
 
+	const refreshGroups = async (ch: 'wa' | 'tg') => {
+		if (!userId) return
+		const count = await fetchGroups(userId, ch)
+		if (!count) {
+			await syncGroups(userId, ch)
+			await fetchGroups(userId, ch)
+		}
+	}
+
 	return (
 		<div className='tpl'>
 			<div className='tpl__wrap'>
@@ -604,6 +613,16 @@ export default function TemplatesPage() {
 										{ label: 'Telegram', value: 'tg' },
 									]}
 								/>
+
+								<button
+									type='button'
+									className='tpl-pill'
+									onClick={() => refreshGroups(groupChannel)}
+									disabled={!userId || loadingGroups}
+									style={{ marginLeft: 8 }}
+								>
+									Обновить группы
+								</button>
 							</div>
 
 							<div className='tpl-groups__meta'>

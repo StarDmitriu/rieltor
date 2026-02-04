@@ -455,11 +455,8 @@ export default function TemplatesPage() {
 
 	const refreshGroups = async (ch: 'wa' | 'tg') => {
 		if (!userId) return
-		const count = await fetchGroups(userId, ch)
-		if (!count) {
-			await syncGroups(userId, ch)
-			await fetchGroups(userId, ch)
-		}
+		await syncGroups(userId, ch)
+		await fetchGroups(userId, ch)
 	}
 
 	return (

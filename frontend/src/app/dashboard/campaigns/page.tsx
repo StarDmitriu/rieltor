@@ -111,8 +111,6 @@ export default function CampaignsHomePage() {
 		() => ({
 			timeFrom,
 			timeTo,
-			betweenGroupsSecMin: 126,
-			betweenGroupsSecMax: 400,
 			betweenTemplatesMinMin: 5,
 			betweenTemplatesMinMax: 15,
 			repeatEnabled: true,
@@ -131,8 +129,14 @@ export default function CampaignsHomePage() {
 	}, [waCampaignId, tgCampaignId])
 
 	const startOne = async (channel: 'wa' | 'tg') => {
+		const betweenGroups =
+			channel === 'tg'
+				? { betweenGroupsSecMin: 30, betweenGroupsSecMax: 60 }
+				: { betweenGroupsSecMin: 126, betweenGroupsSecMax: 400 }
+
 		const data: any = await apiPost('/campaigns/start-multi', {
 			...basePayload,
+			...betweenGroups,
 			channel,
 		})
 

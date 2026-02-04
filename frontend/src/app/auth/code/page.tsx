@@ -6,6 +6,8 @@ import Cookies from 'js-cookie'
 import './page.css'
 import { useNotify } from '@/ui/notify/notify'
 
+const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || '/api'
+
 function maskPhone(p: string) {
 	if (!p) return ''
 	// простая маска: оставим + и последние 2-3 символа, остальное заменим
@@ -48,7 +50,7 @@ function CodeInner() {
 				}
 			}
 
-			const res = await fetch('/api/auth/verify-code', {
+			const res = await fetch(`${backendUrl}/auth/verify-code`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify(body),
@@ -101,7 +103,7 @@ function CodeInner() {
 
 		setResendLoading(true)
 		try {
-			const res = await fetch('/api/auth/send-code', {
+			const res = await fetch(`${backendUrl}/auth/send-code`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ phone }),

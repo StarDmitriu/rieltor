@@ -425,7 +425,7 @@ export default function TemplateEditPage() {
 									<Input
 										className='tedit-input'
 										placeholder=''
-										bordered={false}
+										variant='borderless'
 									/>
 								</Form.Item>
 								<div className='tedit-field__hint'>
@@ -459,7 +459,7 @@ export default function TemplateEditPage() {
 										className='tedit-textarea'
 										rows={4}
 										placeholder=''
-										bordered={false}
+										variant='borderless'
 									/>
 								</Form.Item>
 								<div className='tedit-field__hint'>

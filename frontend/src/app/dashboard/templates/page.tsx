@@ -30,6 +30,42 @@ type UiGroupRow = {
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || '/api'
 
+const GROUPS_CACHE_PREFIX = 'tpl_groups_cache_v1'
+const GROUPS_CACHE_TTL_MS = 1000 * 60 * 60 * 24 // 24h
+
+type GroupsCache = {
+	updatedAt: number
+	groups: UiGroupRow[]
+}
+
+function groupsCacheKey(uid: string, ch: 'wa' | 'tg') {
+	return `${GROUPS_CACHE_PREFIX}:${uid}:${ch}`
+}
+
+function readGroupsCache(uid: string, ch: 'wa' | 'tg') {
+	try {
+		const raw = sessionStorage.getItem(groupsCacheKey(uid, ch))
+		if (!raw) return null
+		const parsed = JSON.parse(raw) as GroupsCache
+		if (!parsed || !Array.isArray(parsed.groups)) return null
+		if (parsed.groups.length === 0) return null
+		if (!Number.isFinite(parsed.updatedAt)) return null
+		if (Date.now() - parsed.updatedAt > GROUPS_CACHE_TTL_MS) return null
+		return parsed.groups
+	} catch {
+		return null
+	}
+}
+
+function writeGroupsCache(uid: string, ch: 'wa' | 'tg', groups: UiGroupRow[]) {
+	try {
+		const payload: GroupsCache = { updatedAt: Date.now(), groups }
+		sessionStorage.setItem(groupsCacheKey(uid, ch), JSON.stringify(payload))
+	} catch {
+		// ignore
+	}
+}
+
 const SEND_INTERVAL_OPTIONS = [
 	{ value: '2-5m', label: '2-5 минут' },
 	{ value: '5-15m', label: '5-15 минут' },
@@ -58,6 +94,26 @@ export default function TemplatesPage() {
 		{}
 	)
 	const token = Cookies.get('token') || ''
+
+	const updateGroups = (
+		ch: 'wa' | 'tg',
+		updater: (rows: UiGroupRow[]) => UiGroupRow[]
+	) => {
+		if (!userId) return
+		if (ch === 'wa') {
+			setWaGroups(prev => {
+				const next = updater(prev)
+				writeGroupsCache(userId, 'wa', next)
+				return next
+			})
+		} else {
+			setTgGroups(prev => {
+				const next = updater(prev)
+				writeGroupsCache(userId, 'tg', next)
+				return next
+			})
+		}
+	}
 
 	const fetchMe = async () => {
 		if (!token) {
@@ -124,6 +180,7 @@ export default function TemplatesPage() {
 					disabled: !!g.is_announcement,
 				}))
 				setWaGroups(mapped)
+				writeGroupsCache(uid, 'wa', mapped)
 				return mapped.length
 			} else {
 				const mapped: UiGroupRow[] = (data.groups || []).map((g: any) => ({
@@ -134,6 +191,7 @@ export default function TemplatesPage() {
 					send_time: g.send_time ?? null,
 				}))
 				setTgGroups(mapped)
+				writeGroupsCache(uid, 'tg', mapped)
 				return mapped.length
 			}
 		} catch (e) {
@@ -185,8 +243,7 @@ export default function TemplatesPage() {
 		const updateGroup = (rows: UiGroupRow[]) =>
 			rows.map(r => (r.id === groupId ? { ...r, is_selected: next } : r))
 
-		if (ch === 'wa') setWaGroups(prev => updateGroup(prev))
-		else setTgGroups(prev => updateGroup(prev))
+		updateGroups(ch, updateGroup)
 
 		setSavingMap(prev => ({ ...prev, [key]: true }))
 
@@ -214,8 +271,7 @@ export default function TemplatesPage() {
 					rows.map(r =>
 						r.id === groupId ? { ...r, is_selected: !next } : r
 					)
-				if (ch === 'wa') setWaGroups(prev => revert(prev))
-				else setTgGroups(prev => revert(prev))
+				updateGroups(ch, revert)
 			}
 		} catch (e) {
 			console.error(e)
@@ -224,8 +280,7 @@ export default function TemplatesPage() {
 				rows.map(r =>
 					r.id === groupId ? { ...r, is_selected: !next } : r
 				)
-			if (ch === 'wa') setWaGroups(prev => revert(prev))
-			else setTgGroups(prev => revert(prev))
+			updateGroups(ch, revert)
 		} finally {
 			setSavingMap(prev => ({ ...prev, [key]: false }))
 		}
@@ -242,8 +297,7 @@ export default function TemplatesPage() {
 		const updateGroup = (rows: UiGroupRow[]) =>
 			rows.map(r => (r.id === groupId ? { ...r, send_time: next } : r))
 
-		if (ch === 'wa') setWaGroups(prev => updateGroup(prev))
-		else setTgGroups(prev => updateGroup(prev))
+		updateGroups(ch, updateGroup)
 
 		setSavingTimeMap(prev => ({ ...prev, [key]: true }))
 
@@ -313,17 +367,36 @@ export default function TemplatesPage() {
 
 	useEffect(() => {
 		if (!userId) return
-		void (async () => {
-			const waCount = await fetchGroups(userId, 'wa')
-			const tgCount = await fetchGroups(userId, 'tg')
+		let waFromCache = false
+		let tgFromCache = false
 
-			if (!waCount) {
-				await syncGroups(userId, 'wa')
-				await fetchGroups(userId, 'wa')
+		const cachedWa = readGroupsCache(userId, 'wa')
+		if (cachedWa) {
+			setWaGroups(cachedWa)
+			waFromCache = true
+		}
+
+		const cachedTg = readGroupsCache(userId, 'tg')
+		if (cachedTg) {
+			setTgGroups(cachedTg)
+			tgFromCache = true
+		}
+
+		void (async () => {
+			if (!waFromCache) {
+				const waCount = await fetchGroups(userId, 'wa')
+				if (!waCount) {
+					await syncGroups(userId, 'wa')
+					await fetchGroups(userId, 'wa')
+				}
 			}
-			if (!tgCount) {
-				await syncGroups(userId, 'tg')
-				await fetchGroups(userId, 'tg')
+
+			if (!tgFromCache) {
+				const tgCount = await fetchGroups(userId, 'tg')
+				if (!tgCount) {
+					await syncGroups(userId, 'tg')
+					await fetchGroups(userId, 'tg')
+				}
 			}
 		})()
 		// eslint-disable-next-line react-hooks/exhaustive-deps

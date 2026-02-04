@@ -35,10 +35,13 @@ export default function CabinetPage() {
 		process.env.NEXT_PUBLIC_BACKEND_URL || '/api'
 
 	useEffect(() => {
+		let cancelled = false
 		const token = Cookies.get('token')
 		if (!token) {
-			router.push('/auth/phone')
-			return;		}
+			setLoading(false)
+			router.replace('/auth/phone')
+			return
+		}
 
 		const loadMe = async () => {
 			try {
@@ -49,24 +52,28 @@ export default function CabinetPage() {
 				const data = await res.json()
 				if (!data.success) {
 					Cookies.remove('token')
-					router.push('/auth/phone')
-					return;				}
-				setUser(data.user)
+					router.replace('/auth/phone')
+					return
+				}
+				if (!cancelled) setUser(data.user)
 			} catch (e) {
 				console.error(e)
 			} finally {
-				setLoading(false)
+				if (!cancelled) setLoading(false)
 			}
 		}
 
 		loadMe()
-	}, [router])
+		return () => {
+			cancelled = true
+		}
+	}, [router, backendUrl])
 
 	const goTemplates = () => router.push('/dashboard/templates')
 
 	const logout = () => {
 		Cookies.remove('token')
-		router.push('/auth/phone')
+		// redirect handled in effect
 	}
 
 	const goSubscription = () => router.push('/cabinet/subscription')
@@ -79,10 +86,10 @@ export default function CabinetPage() {
 	if (loading) return <div style={{ padding: 24 }}>Загрузка...</div>
 
 	if (!user) {
-		router.push('/auth/phone')
+		// redirect handled in effect
 		return (
 			<div style={{ padding: 24 }}>
-				Пользователь не найден.{' '}
+				Пользователь не найден.
 			</div>
 		)
 	}

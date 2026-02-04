@@ -6,6 +6,8 @@ import Link from 'next/link'
 import './page.css'
 import { useNotify } from '@/ui/notify/notify'
 
+const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || '/api'
+
 function RegisterInner() {
 	const router = useRouter()
 	const params = useSearchParams()
@@ -44,7 +46,7 @@ function RegisterInner() {
 		setLoading(true)
 		try {
 			// 1) отправляем код
-			const res = await fetch('/api/auth/send-code', {
+			const res = await fetch(`${backendUrl}/auth/send-code`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ phone: phone.trim() }),

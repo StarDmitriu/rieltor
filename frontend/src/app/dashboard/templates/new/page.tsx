@@ -99,6 +99,9 @@ export default function TemplateCreatePage() {
 		try {
 			const res = await fetch(`${BACKEND_URL}/whatsapp/groups/${uid}`, {
 				cache: 'no-store',
+				headers: {
+					...(token ? { Authorization: `Bearer ${token}` } : {}),
+				},
 			})
 			const json = await res.json()
 			if (!json?.success) {
@@ -121,6 +124,7 @@ export default function TemplateCreatePage() {
 		} catch (e) {
 			console.error(e)
 			message.error('Ошибка сети при загрузке WA групп')
+			setWaGroups([])
 		}
 	}
 
@@ -128,6 +132,9 @@ export default function TemplateCreatePage() {
 		try {
 			const res = await fetch(`${BACKEND_URL}/telegram/groups/${uid}`, {
 				cache: 'no-store',
+				headers: {
+					...(token ? { Authorization: `Bearer ${token}` } : {}),
+				},
 			})
 			const json = await res.json()
 			if (!json?.success) {
@@ -153,6 +160,7 @@ export default function TemplateCreatePage() {
 		} catch (e) {
 			console.error(e)
 			message.error('Ошибка сети при загрузке TG групп')
+			setTgGroups([])
 		}
 	}
 

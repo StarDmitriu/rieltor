@@ -87,6 +87,9 @@ export default function GroupsPage() {
 		try {
 			const res = await fetch(`${BACKEND_URL}/whatsapp/groups/${uid}`, {
 				cache: 'no-store',
+				headers: {
+					...(token ? { Authorization: `Bearer ${token}` } : {}),
+				},
 			})
 			const data: GroupsResponse = await res.json()
 			if ((data as any).success) {

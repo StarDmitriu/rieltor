@@ -181,6 +181,43 @@ export default function TemplateEditPage() {
 		}
 	}
 
+	const reloadTgSelectedFromDb = async () => {
+		if (!userId) return message.warning('Нет userId')
+		const reqId = ++groupsReqRef.current
+		try {
+			const res = await fetch(`${BACKEND_URL}/telegram/groups/${userId}`, {
+				cache: 'no-store',
+				headers: {
+					...(token ? { Authorization: `Bearer ${token}` } : {}),
+				},
+			})
+			const json = await res.json()
+			if (reqId !== groupsReqRef.current) return
+			if (!json?.success) {
+				message.error('Не удалось загрузить TG группы из БД')
+				return
+			}
+			const selectedOnly = (json.groups || []).filter(
+				(g: any) => g.is_selected !== false
+			)
+			setGroups(
+				selectedOnly.map((g: any) => ({
+					jid: String(g.tg_chat_id),
+					title: g.title ?? null,
+					participants_count: g.participants_count ?? null,
+					is_restricted: false,
+					updated_at: g.updated_at,
+					send_time: g.send_time ?? null,
+				}))
+			)
+			message.success(`TG группы обновлены: ${selectedOnly.length}`)
+		} catch (e) {
+			if (reqId !== groupsReqRef.current) return
+			console.error(e)
+			message.error('Ошибка сети при загрузке TG групп из БД')
+		}
+	}
+
 	const saveGroups = async () => {
 		if (!userId) return message.error('Нет userId')
 		setSavingGroups(true)
@@ -613,6 +650,17 @@ export default function TemplateEditPage() {
 								>
 									Снять все
 								</button>
+
+								{channel === 'tg' ? (
+									<button
+										type='button'
+										className='tedit-pill tedit-pill--primary'
+										onClick={reloadTgSelectedFromDb}
+										disabled={!userId}
+									>
+										Получить группы 
+									</button>
+								) : null}
 
 								<button
 									type='button'

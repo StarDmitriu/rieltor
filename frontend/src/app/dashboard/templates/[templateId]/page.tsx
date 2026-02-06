@@ -74,6 +74,7 @@ export default function TemplateEditPage() {
 	const [selectedGroupJids, setSelectedGroupJids] = useState<string[]>([])
 	const [savingGroups, setSavingGroups] = useState(false)
 	const [savingTimeMap, setSavingTimeMap] = useState<Record<string, boolean>>({})
+	const [tgReloading, setTgReloading] = useState(false)
 	const groupsReqRef = useRef(0)
 	const targetsReqRef = useRef(0)
 
@@ -183,6 +184,7 @@ export default function TemplateEditPage() {
 
 	const reloadTgSelectedFromDb = async () => {
 		if (!userId) return message.warning('Нет userId')
+		setTgReloading(true)
 		const reqId = ++groupsReqRef.current
 		try {
 			const res = await fetch(`${BACKEND_URL}/telegram/groups/${userId}`, {
@@ -215,6 +217,8 @@ export default function TemplateEditPage() {
 			if (reqId !== groupsReqRef.current) return
 			console.error(e)
 			message.error('Ошибка сети при загрузке TG групп из БД')
+		} finally {
+			setTgReloading(false)
 		}
 	}
 
@@ -656,9 +660,16 @@ export default function TemplateEditPage() {
 										type='button'
 										className='tedit-pill tedit-pill--primary'
 										onClick={reloadTgSelectedFromDb}
-										disabled={!userId}
+										disabled={!userId || tgReloading}
 									>
-										Получить группы 
+										{tgReloading ? (
+											<>
+												<span className='tedit-spinner' />
+												Загружаем TG...
+											</>
+										) : (
+											'Получить группы'
+										)}
 									</button>
 								) : null}
 

@@ -70,6 +70,7 @@ export default function TemplateCreatePage() {
 	const [savingTimeMap, setSavingTimeMap] = useState<Record<string, boolean>>(
 		{}
 	)
+	const [tgReloading, setTgReloading] = useState(false)
 
 	const token = Cookies.get('token') || ''
 
@@ -279,6 +280,7 @@ export default function TemplateCreatePage() {
 
 	const reloadTgSelectedFromDb = async () => {
 		if (!userId) return message.warning('Нет userId')
+		setTgReloading(true)
 		try {
 			const res = await fetch(`${BACKEND_URL}/telegram/groups/${userId}`, {
 				cache: 'no-store',
@@ -308,6 +310,8 @@ export default function TemplateCreatePage() {
 		} catch (e) {
 			console.error(e)
 			message.error('Ошибка сети при загрузке TG групп из БД')
+		} finally {
+			setTgReloading(false)
 		}
 	}
 
@@ -613,9 +617,16 @@ export default function TemplateCreatePage() {
 										type='button'
 										className='tedit-pill tedit-pill--primary'
 										onClick={reloadTgSelectedFromDb}
-										disabled={!userId}
+										disabled={!userId || tgReloading}
 									>
-										Подтянуть TG из БД
+										{tgReloading ? (
+											<>
+												<span className='tedit-spinner' />
+												Загружаем TG...
+											</>
+										) : (
+											'Подтянуть TG из БД'
+										)}
 									</button>
 								) : null}
 							</div>

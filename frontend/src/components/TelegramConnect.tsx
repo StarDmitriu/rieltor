@@ -289,7 +289,7 @@ export function TelegramConnect({ userId }: { userId: string }) {
 							<div
 								style={{ width: '100%', textAlign: 'center', marginBottom: 6 }}
 							>
-								Нужен пароль 2FA:
+								Нужен пароль двухэтапной аунтефикации:
 							</div>
 							<input
 								type='password'

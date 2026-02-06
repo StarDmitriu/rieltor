@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Cookies from 'js-cookie'
 import {
 	Form,
@@ -74,6 +74,8 @@ export default function TemplateEditPage() {
 	const [selectedGroupJids, setSelectedGroupJids] = useState<string[]>([])
 	const [savingGroups, setSavingGroups] = useState(false)
 	const [savingTimeMap, setSavingTimeMap] = useState<Record<string, boolean>>({})
+	const groupsReqRef = useRef(0)
+	const targetsReqRef = useRef(0)
 
 	const token = Cookies.get('token') || ''
 
@@ -102,57 +104,81 @@ export default function TemplateEditPage() {
 	}
 
 	const loadGroups = async (uid: string, ch: 'wa' | 'tg') => {
+		const reqId = ++groupsReqRef.current
 		const url =
 			ch === 'tg'
 				? `${BACKEND_URL}/telegram/groups/${uid}`
 				: `${BACKEND_URL}/whatsapp/groups/${uid}`
 
-		const res = await fetch(url, { cache: 'no-store' })
-		const json = await res.json()
-		if (!json?.success) {
-			message.error('Не удалось загрузить группы')
+		try {
+			const res = await fetch(url, {
+				cache: 'no-store',
+				headers: {
+					...(token ? { Authorization: `Bearer ${token}` } : {}),
+				},
+			})
+			const json = await res.json()
+			if (reqId !== groupsReqRef.current) return
+
+			if (!json?.success) {
+				message.error('Не удалось загрузить группы')
+				setGroups([])
+				return;			}
+
+			if (ch === 'tg') {
+				const selectedOnly = (json.groups || []).filter(
+					(g: any) => g.is_selected !== false
+				)
+
+				setGroups(
+					selectedOnly.map((g: any) => ({
+						jid: String(g.tg_chat_id),
+						title: g.title ?? null,
+						participants_count: g.participants_count ?? null,
+						is_restricted: false,
+						updated_at: g.updated_at,
+						send_time: g.send_time ?? null,
+					}))
+				)
+			} else {
+				const usable = (json.groups || []).filter((g: any) => !g.is_announcement)
+				setGroups(
+					usable.map((g: any) => ({
+						jid: String(g.wa_group_id),
+						title: g.subject ?? null,
+						participants_count: g.participants_count ?? null,
+						is_restricted: g.is_restricted ?? false,
+						updated_at: g.updated_at,
+						send_time: g.send_time ?? null,
+					}))
+				)
+			}
+		} catch (e) {
+			if (reqId !== groupsReqRef.current) return
+			console.error(e)
+			message.error('Ошибка сети при загрузке групп')
 			setGroups([])
-			return;		}
-
-		if (ch === 'tg') {
-			const selectedOnly = (json.groups || []).filter(
-				(g: any) => g.is_selected !== false
-			)
-
-			setGroups(
-				selectedOnly.map((g: any) => ({
-					jid: String(g.tg_chat_id),
-					title: g.title ?? null,
-					participants_count: g.participants_count ?? null,
-					is_restricted: false,
-					updated_at: g.updated_at,
-					send_time: g.send_time ?? null,
-				}))
-			)
-		} else {
-			const usable = (json.groups || []).filter((g: any) => !g.is_announcement)
-			setGroups(
-				usable.map((g: any) => ({
-					jid: String(g.wa_group_id),
-					title: g.subject ?? null,
-					participants_count: g.participants_count ?? null,
-					is_restricted: g.is_restricted ?? false,
-					updated_at: g.updated_at,
-					send_time: g.send_time ?? null,
-				}))
-			)
 		}
 	}
 
 	const loadTargets = async (uid: string, ch: 'wa' | 'tg') => {
-		const json: any = await apiGet(
-			`/templates/targets/${uid}/${templateId}/${ch}`
-		)
-		if (!json?.success) {
-			message.error('Не удалось загрузить выбранные группы')
+		const reqId = ++targetsReqRef.current
+		try {
+			const json: any = await apiGet(
+				`/templates/targets/${uid}/${templateId}/${ch}`
+			)
+			if (reqId !== targetsReqRef.current) return
+			if (!json?.success) {
+				message.error('Не удалось загрузить выбранные группы')
+				setSelectedGroupJids([])
+				return;			}
+			setSelectedGroupJids((json.groupJids || []).map((x: any) => String(x)))
+		} catch (e) {
+			if (reqId !== targetsReqRef.current) return
+			console.error(e)
+			message.error('Ошибка сети при загрузке выбранных групп')
 			setSelectedGroupJids([])
-			return;		}
-		setSelectedGroupJids((json.groupJids || []).map((x: any) => String(x)))
+		}
 	}
 
 	const saveGroups = async () => {

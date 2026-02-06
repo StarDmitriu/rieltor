@@ -80,6 +80,9 @@ export default function TelegramGroupsPage() {
 		try {
 			const res = await fetch(`${BACKEND_URL}/telegram/groups/${uid}`, {
 				cache: 'no-store',
+				headers: {
+					...(token ? { Authorization: `Bearer ${token}` } : {}),
+				},
 			})
 			const data = await res.json()
 			if (data?.success) {

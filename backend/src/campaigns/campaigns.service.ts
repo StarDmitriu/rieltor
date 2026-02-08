@@ -374,10 +374,20 @@ export class CampaignsService {
   }
 
   // =========================
-  // GET JOBS
+  // GET JOBS (с проверкой владельца, если передан userId)
   // =========================
-  async getJobs(campaignId: string) {
+  async getJobs(campaignId: string, userId?: string) {
     const supabase = this.supabaseService.getClient();
+    if (userId) {
+      const { data: camp, error: cErr } = await supabase
+        .from('campaigns')
+        .select('id')
+        .eq('id', campaignId)
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (cErr || !camp)
+        return { success: false, message: 'campaign_not_found', error: cErr };
+    }
     const { data, error } = await supabase
       .from('campaign_jobs')
       .select(
@@ -392,16 +402,17 @@ export class CampaignsService {
   }
 
   // =========================
-  // PROGRESS
+  // PROGRESS (с проверкой владельца, если передан userId)
   // =========================
-  async getProgress(campaignId: string) {
+  async getProgress(campaignId: string, userId?: string) {
     const supabase = this.supabaseService.getClient();
 
-    const { data: camp, error: cErr } = await supabase
+    let query = supabase
       .from('campaigns')
       .select('id, status, created_at')
-      .eq('id', campaignId)
-      .maybeSingle();
+      .eq('id', campaignId);
+    if (userId) query = query.eq('user_id', userId);
+    const { data: camp, error: cErr } = await query.maybeSingle();
 
     if (cErr || !camp)
       return { success: false, message: 'campaign_not_found', error: cErr };
@@ -453,12 +464,12 @@ export class CampaignsService {
   }
 
   // =========================
-  // STOP
+  // STOP (с проверкой владельца, если передан userId)
   // =========================
-  async stopCampaign(campaignId: string) {
+  async stopCampaign(campaignId: string, userId?: string) {
     const supabase = this.supabaseService.getClient();
 
-    await supabase
+    let updateQuery = supabase
       .from('campaigns')
       .update({
         status: 'stopped',
@@ -466,6 +477,10 @@ export class CampaignsService {
         next_repeat_at: null,
       })
       .eq('id', campaignId);
+    if (userId) updateQuery = updateQuery.eq('user_id', userId);
+    const { data: updated, error: uErr } = await updateQuery.select('id').maybeSingle();
+    if (uErr) return { success: false, message: 'supabase_campaign_update_error', error: uErr };
+    if (!updated) return { success: false, message: 'campaign_not_found' };
 
     const { error } = await supabase
       .from('campaign_jobs')
@@ -483,10 +498,25 @@ export class CampaignsService {
   }
 
   // =========================
-  // REQUEUE (оставляем, но на фронте не используем)
+  // REQUEUE (с проверкой владельца, если передан userId)
   // =========================
-  async requeueCampaign(campaignId: string, opts: RequeueOptions = {}) {
+  async requeueCampaign(
+    campaignId: string,
+    userId?: string,
+    opts: RequeueOptions = {},
+  ) {
     const supabase = this.supabaseService.getClient();
+
+    if (userId) {
+      const { data: camp, error: cErr } = await supabase
+        .from('campaigns')
+        .select('id')
+        .eq('id', campaignId)
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (cErr || !camp)
+        return { success: false, message: 'campaign_not_found', error: cErr };
+    }
 
     const includeSent = !!opts.includeSent;
     const forceNow = !!opts.forceNow;

@@ -76,35 +76,42 @@ export class CampaignsController {
   }
 
   @Get(':campaignId/progress')
-  async progress(@Param('campaignId') campaignId: string) {
+  async progress(@Req() req: any, @Param('campaignId') campaignId: string) {
     if (!campaignId)
       return { success: false, message: 'campaignId is required' };
-    return this.campaigns.getProgress(campaignId);
+    const userId = req?.user?.userId;
+    return this.campaigns.getProgress(campaignId, userId);
   }
 
   @Get(':campaignId/jobs')
-  async jobs(@Param('campaignId') campaignId: string) {
+  async jobs(@Req() req: any, @Param('campaignId') campaignId: string) {
     if (!campaignId)
       return { success: false, message: 'campaignId is required' };
-    return this.campaigns.getJobs(campaignId);
+    const userId = req?.user?.userId;
+    return this.campaigns.getJobs(campaignId, userId);
   }
 
   @Post(':campaignId/requeue')
   @UseGuards(JwtAuthGuard, SubscriptionGuard)
-  async requeue(@Param('campaignId') campaignId: string, @Body() body: any) {
+  async requeue(
+    @Req() req: any,
+    @Param('campaignId') campaignId: string,
+    @Body() body: any,
+  ) {
     if (!campaignId)
       return { success: false, message: 'campaignId is required' };
-
-    return this.campaigns.requeueCampaign(campaignId, {
+    const userId = req?.user?.userId;
+    return this.campaigns.requeueCampaign(campaignId, userId, {
       includeSent: toBool(body?.includeSent),
       forceNow: toBool(body?.forceNow),
     });
   }
 
   @Post(':campaignId/stop')
-  async stop(@Param('campaignId') campaignId: string) {
+  async stop(@Req() req: any, @Param('campaignId') campaignId: string) {
     if (!campaignId)
       return { success: false, message: 'campaignId is required' };
-    return this.campaigns.stopCampaign(campaignId);
+    const userId = req?.user?.userId;
+    return this.campaigns.stopCampaign(campaignId, userId);
   }
 }

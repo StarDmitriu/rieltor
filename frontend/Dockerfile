@@ -18,18 +18,18 @@ COPY . .
 RUN npm run build
 
 # ---------- run ----------
+# standalone: Next собирает один каталог с сервером и минимальным node_modules — без второго npm ci
 FROM node:20-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
+ENV PORT=3001
 
-COPY --from=builder /app/package*.json ./
-RUN npm ci --omit=dev
-
-COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
 
 EXPOSE 3001
-CMD ["npm", "run", "start", "--", "-p", "3001"]
+CMD ["node", "server.js"]
 
 

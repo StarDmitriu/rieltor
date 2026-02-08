@@ -87,6 +87,9 @@ services:
     environment:
       NODE_ENV: production
       NEXT_PUBLIC_BACKEND_URL: /api
+      # Внутренний URL бэкенда для SSR/rewrites — избегаем запросов на публичный IP из контейнера
+      BACKEND_INTERNAL_URL: http://backend:3000
+      HOSTNAME: "0.0.0.0"   # слушать на всех интерфейсах — иначе healthcheck (localhost) не проходит
       NODE_OPTIONS: --enable-source-maps
       TURBOPACK: "0"
 

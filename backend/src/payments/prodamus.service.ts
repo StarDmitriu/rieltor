@@ -150,7 +150,6 @@ export class ProdamusService {
   }): string {
     const base = this.getBaseFormUrl();
 
-    console.log('SECRET:', JSON.stringify(process.env.PRODAMUS_SECRET_KEY));
     const dataForSign: AnyObj = {
       sys: this.sys,
       order_num: params.orderId,
